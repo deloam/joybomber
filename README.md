@@ -23,7 +23,6 @@ Este projeto utiliza o que há de mais moderno no desenvolvimento web:
 - **Tailwind CSS**: Estilização moderna e responsiva.
 - **Supabase Realtime**: Sincronização de estado entre jogadores via broadcast e presence.
 - **Lucide React**: Ícones vetoriais elegantes.
-- **Framer Motion**: (Se aplicável) Micro-interações e animações.
 
 ## 🛠️ Como Executar
 
