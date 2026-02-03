@@ -59,7 +59,13 @@ Este projeto utiliza o que há de mais moderno no desenvolvimento web:
 
 ## 📸 Screenshots
 
-*(Adicione imagens aqui para impressionar no GitHub!)*
+<div align="center">
+  <img src="/public/prints/print%201.png" width="400" alt="JoyBomber Gameplay 1">
+  <img src="/public/prints/print%202.png" width="400" alt="JoyBomber Gameplay 2">
+  <br>
+  <img src="/public/prints/print%203.png" width="400" alt="JoyBomber Gameplay 3">
+  <img src="/public/prints/print%204.png" width="400" alt="JoyBomber Gameplay 4">
+</div>
 
 ---
 
