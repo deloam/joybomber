@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GRID_WIDTH, GRID_HEIGHT, BLOCK, POWERUP, isValidMove } from '../utils/gameLogic';
 import { Bomb, Flame, Footprints, Trophy, Skull, Volume2, VolumeX } from 'lucide-react';
 import { WallSprite, CrateSprite, BombSprite, PlayerSprite, ExplosionSprite } from './Sprites';
+import clsx from 'clsx';
 
 // Constants
 const CELL_SIZE = 40; // px
