@@ -10,18 +10,27 @@ export default function Chat({ channel, playerId, playerName, players }) {
     useEffect(() => {
         if (!channel) return;
 
-        const sub = channel.on('broadcast', { event: 'chat_message' }, ({ payload }) => {
-            setMessages(prev => [...prev, {
-                id: Date.now() + Math.random(),
-                senderId: payload.senderId,
-                senderName: payload.senderName,
-                text: payload.text,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }].slice(-50));
-        });
+        const onMessage = ({ payload }) => {
+            setMessages(prev => {
+                // Deduplicate by message ID if present
+                if (payload.id && prev.some(m => m.id === payload.id)) return prev;
+
+                return [...prev, {
+                    id: payload.id || Date.now() + Math.random(),
+                    senderId: payload.senderId,
+                    senderName: payload.senderName,
+                    text: payload.text,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                }].slice(-50);
+            });
+        };
+
+        channel.on('broadcast', { event: 'chat_message' }, onMessage);
 
         return () => {
-            // Unsubscribe is handled by parent Game component
+            // Supabase RealtimeChannel doesn't have an easily accessible .off() 
+            // for individual broadcast listeners without re-subscribing.
+            // Our deduplication logic (ID check) handles the extra listeners.
         };
     }, [channel]);
 
@@ -35,7 +44,9 @@ export default function Chat({ channel, playerId, playerName, players }) {
         e?.preventDefault();
         if (!input.trim()) return;
 
+        const msgId = `chat-${playerId}-${Date.now()}-${Math.random()}`;
         const msg = {
+            id: msgId,
             senderId: playerId,
             senderName: playerName,
             text: input.trim()
@@ -49,7 +60,7 @@ export default function Chat({ channel, playerId, playerName, players }) {
 
         // Add locally for instant feedback
         setMessages(prev => [...prev, {
-            id: Date.now() + Math.random(),
+            id: msgId,
             senderId: playerId,
             senderName: playerName,
             text: input.trim(),
@@ -60,7 +71,7 @@ export default function Chat({ channel, playerId, playerName, players }) {
     };
 
     return (
-        <div className="flex flex-col w-full max-w-sm h-[400px] bg-white border-4 border-joy-pink rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-in-right">
+        <div className="flex flex-col w-full max-w-sm h-[600px] bg-white border-4 border-joy-pink rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-in-right">
             {/* Header */}
             <div className="bg-joy-pink p-4 flex items-center gap-3">
                 <div className="bg-white/20 p-2 rounded-full">

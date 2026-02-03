@@ -29,7 +29,7 @@ export default function App() {
   const presenceRef = useRef({});
   const channelRef = useRef(null);
   const lobbyMusicRef = useRef(null);
-  const [isAudioEnabled, setIsAudioEnabled] = useState(false);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
 
   useEffect(() => {
     presenceRef.current = presence;
@@ -111,7 +111,7 @@ export default function App() {
         addLog(`User Left: ${key}`);
       })
       .on('broadcast', { event: 'init_game' }, ({ payload }) => {
-        addLog(`Game Started by Host!`);
+        addLog(`Game Started by Host! Received ${payload.map?.length} tiles.`);
         setMap(payload.map);
         setPlayers(payload.players);
         setStatus('playing');
@@ -128,8 +128,8 @@ export default function App() {
           const allUsers = [];
           for (const key in state) if (state[key].length > 0) allUsers.push(state[key][0]);
           allUsers.sort((a, b) => (a.online_at || '') < (b.online_at || '') ? -1 : 1);
-          if (allUsers.length > 0 && allUsers[0].id === playerId && allUsers.length >= 2) {
-            startGameLocal(allUsers[0].id, allUsers[1].id, newChannel);
+          if (allUsers.length >= 2 && allUsers[0].id === playerId) {
+            startGameLocal(allUsers[0], allUsers[1], newChannel);
           }
         }
       })
@@ -177,17 +177,27 @@ export default function App() {
   };
 
   const startGameLocal = (p1, p2, chan) => {
-    addLog(`Starting Game: ${p1.name} vs ${p2.name}`);
+    if (!p1 || !p2) {
+      addLog('Error: Cannot start game - missing players');
+      return;
+    }
+    addLog(`Starting Game: ${p1.name || 'P1'} vs ${p2.name || 'P2'}`);
     const newMap = generateMap();
+    if (!newMap) {
+      addLog('Error: Failed to generate map');
+      return;
+    }
     const initialPlayers = {
-      [p1.id]: { x: 0, y: 0, color: 'blue', bombs: 1, range: 1, lives: 3, alive: true, speed: 360, name: p1.name, character: p1.character || 'hello' },
-      [p2.id]: { x: GRID_WIDTH - 1, y: GRID_HEIGHT - 1, color: 'pink', bombs: 1, range: 1, lives: 3, alive: true, speed: 360, name: p2.name, character: p2.character || 'menino' }
+      [p1.id]: { x: 0, y: 0, color: 'blue', bombs: 1, range: 1, lives: 3, alive: true, speed: 360, name: p1.name || 'Player 1', character: p1.character || 'hello' },
+      [p2.id]: { x: GRID_WIDTH - 1, y: GRID_HEIGHT - 1, color: 'pink', bombs: 1, range: 1, lives: 3, alive: true, speed: 360, name: p2.name || 'Player 2', character: p2.character || 'menino' }
     };
 
+    // Set data first, THEN trigger view change
     setMap(newMap);
     setPlayers(initialPlayers);
     setStatus('playing');
     setIsInGame(true);
+    addLog('State updated: isInGame = true');
 
     chan.send({
       type: 'broadcast',
@@ -299,8 +309,8 @@ export default function App() {
                 <p className="text-[10px] text-joy-deep-purple/60 tracking-[0.2em] font-black uppercase mt-2">Para tirar você do tédio</p>
               </div>
 
-              <div class="mb-4 space-y-1">
-                <label class="text-[15px] text-joy-pink font-black tracking-widest uppercase ml-1">✧ SEU NOME ✧</label>
+              <div className="mb-4 space-y-1">
+                <label className="text-[15px] text-joy-pink font-black tracking-widest uppercase ml-1">✧ SEU NOME ✧</label>
                 <input
                   type="text"
                   className="w-full bg-joy-bg/50 border-2 border-joy-rosinha/80 focus:border-joy-pink p-3 text-center tracking-widest outline-none uppercase font-black text-base rounded-2xl transition-all text-joy-roxo/60 placeholder:text-joy-pink/80"
@@ -399,11 +409,11 @@ export default function App() {
                 </div>
               )}
             </div>
-            <p className="mt-4 text-[10px] font-black text-joy-deep-purple/80 uppercase tracking-[0.4em] drop-shadow-sm">Criado por Deloam</p>
+            <p className="mt-4 text-[10px] font-black text-joy-deep-purple/80 uppercase tracking-[0.4em] drop-shadow-sm">Criado por Deloam • v2.1</p>
           </>
         )}
 
-        {isInGame && map && (
+        {isInGame && map ? (
           <Game
             key={JSON.stringify(map)}
             channel={channel}
@@ -416,7 +426,7 @@ export default function App() {
             isAudioEnabled={isAudioEnabled}
             onToggleAudio={() => setIsAudioEnabled(!isAudioEnabled)}
           />
-        )}
+        ) : null}
       </div>
     </div>
   );

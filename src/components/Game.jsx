@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GRID_WIDTH, GRID_HEIGHT, BLOCK, POWERUP, isValidMove } from '../utils/gameLogic';
-import { Bomb, Flame, Footprints, Trophy, Skull, Volume2, VolumeX } from 'lucide-react';
+import { Bomb, Flame, Footprints, Skull, Volume2, VolumeX } from 'lucide-react';
 import { WallSprite, CrateSprite, BombSprite, PlayerSprite, ExplosionSprite } from './Sprites';
 import { VirtualJoystick, BombButton } from './MobileControls';
 import Chat from './Chat';
@@ -484,10 +484,36 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                     {/* Game Over Modal */}
                     {gameOver && (
                         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md p-4 text-center">
-                            <h1 className="text-5xl md:text-7xl font-black text-joy-pink drop-shadow-[0_4px_0_#fff] mb-8 animate-bounce leading-tight">
+                            {/* Celebration/Loss Frame */}
+                            {(() => {
+                                const isWinner = gameOver.winner === playerId;
+                                return (
+                                    <div className="relative mb-6 animate-float">
+                                        <div className={clsx(
+                                            "absolute -inset-2 rounded-[2.5rem] blur-lg opacity-50 animate-pulse",
+                                            isWinner ? "bg-gradient-to-r from-joy-pink via-joy-yellow to-joy-pink" : "bg-joy-roxo/30"
+                                        )} />
+                                        <div className={clsx(
+                                            "relative bg-white border-8 p-4 rounded-[2.5rem] shadow-2xl max-w-[280px] md:max-w-md overflow-hidden",
+                                            isWinner ? "border-joy-yellow" : "border-joy-lavender"
+                                        )}>
+                                            <img
+                                                src={isWinner ? "/images/vitoria.png" : "/images/perdeu.png"}
+                                                alt={isWinner ? "Vitória" : "Derrota"}
+                                                className="w-full h-auto rounded-2xl drop-shadow-md"
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            <h1 className={clsx(
+                                "text-4xl md:text-6xl font-black drop-shadow-[0_4px_0_#fff] mb-6 leading-tight uppercase tracking-tighter",
+                                gameOver.winner === playerId ? "text-joy-pink" : "text-joy-roxo/60"
+                            )}>
                                 {gameOver.winner === playerId ? "VOCÊ VENCEU! ✨" : "TENTE DE NOVO! 🌸"}
                             </h1>
-                            <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-4 w-full max-w-xs">
                                 <button
                                     onClick={() => {
                                         if (rematchVotes.includes(playerId)) return;
@@ -496,12 +522,12 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                                         channel.send({ type: 'broadcast', event: 'vote_restart', payload: { id: playerId } });
                                         if (isHost && newVotes.length >= 2) onRestart();
                                     }}
-                                    className="px-12 py-5 bg-joy-pink text-white rounded-3xl text-2xl font-black uppercase tracking-widest transition-all shadow-[0_10px_0_#e6789b] active:translate-y-1 active:shadow-none disabled:opacity-50"
+                                    className="w-full py-5 bg-joy-pink text-white rounded-3xl text-xl font-black uppercase tracking-widest transition-all shadow-[0_10px_0_#e6789b] active:translate-y-1 active:shadow-none disabled:opacity-50"
                                     disabled={rematchVotes.includes(playerId)}
                                 >
                                     {rematchVotes.includes(playerId) ? `Aguardando... (${rematchVotes.length}/2)` : "JOGAR MAIS! ♡"}
                                 </button>
-                                <button onClick={onLeave} className="px-8 py-3 bg-transparent border-4 border-joy-pink/20 text-joy-pink/60 hover:text-joy-pink hover:border-joy-pink rounded-3xl text-sm font-black uppercase tracking-widest transition-all">
+                                <button onClick={onLeave} className="w-full py-3 bg-transparent border-4 border-joy-pink/20 text-joy-pink/60 hover:text-joy-pink hover:border-joy-pink rounded-3xl text-sm font-black uppercase tracking-widest transition-all">
                                     Voltar ao Início
                                 </button>
                             </div>
