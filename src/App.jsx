@@ -270,135 +270,137 @@ export default function App() {
       <div className={`flex-1 flex flex-col items-center justify-center p-4 transition-all duration-300 ${!isInGame ? 'w-full' : ''}`}>
 
         {!isInGame && (
-          <div className="w-full max-w-md bg-white border-4 border-joy-pink p-6 rounded-[2rem] shadow-[0_20px_50px_rgba(254,148,180,0.3)] relative overflow-y-auto my-4 max-h-[90vh] flex flex-col">
-            {/* Audio Toggle Button */}
-            <button
-              onClick={() => setIsAudioEnabled(!isAudioEnabled)}
-              className="absolute top-4 right-4 z-50 p-2 bg-white/80 backdrop-blur-sm border-2 border-joy-pink/20 rounded-full text-joy-pink hover:bg-joy-pink hover:text-white transition-all shadow-sm"
-              title={isAudioEnabled ? "Mutar Música" : "Tocar Música"}
-            >
-              {isAudioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-            </button>
-            {/* Header / Cover */}
-            <div className="relative h-44 -mx-6 -mt-6 mb-4 overflow-hidden">
-              <img
-                src="/images/capa do jogo.png"
-                alt="JoyBomber Cover"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent"></div>
-            </div>
-
-            <div className="text-center mb-4 flex flex-col items-center">
-              <img
-                src="/images/nome do jogo.png"
-                alt="JoyBomber Logo"
-                className="h-16 object-contain drop-shadow-[0_2px_10px_rgba(254,148,180,0.3)] animate-float"
-              />
-              <p className="text-[10px] text-joy-deep-purple/60 tracking-[0.2em] font-black uppercase mt-2">Para tirar você do tédio</p>
-            </div>
-
-            <div class="mb-4 space-y-1">
-              <label class="text-[9px] text-joy-pink font-black tracking-widest uppercase ml-1">✧ SEU NOME ✧</label>
-              <input
-                type="text"
-                className="w-full bg-joy-bg/50 border-2 border-joy-pink/30 focus:border-joy-pink p-3 text-center tracking-widest outline-none uppercase font-black text-base rounded-2xl transition-all text-joy-deep-purple placeholder:text-joy-pink/20"
-                placeholder="NOME"
-                maxLength={12}
-                value={playerName}
-                onChange={e => {
-                  const val = e.target.value.toUpperCase();
-                  setPlayerName(val);
-                  localStorage.setItem('bomberName', val);
-                }}
-              />
-            </div>
-
-            {status === 'lobby' ? (
-              <div className="space-y-3">
-                <button onClick={createGame} className="w-full py-3 bg-joy-pink text-white rounded-2xl font-black tracking-widest hover:bg-joy-pink/90 hover:scale-[1.02] shadow-lg shadow-joy-pink/30 flex items-center justify-center gap-2 transition-all">
-                  <Play size={18} fill="currentColor" /> CRIAR SALA
-                </button>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    className="flex-1 bg-joy-bg/50 border-2 border-joy-lavender/50 p-3 text-center tracking-[0.2em] font-black focus:border-joy-lavender outline-none rounded-2xl text-sm"
-                    placeholder="CÓDIGO"
-                    maxLength={5}
-                    value={roomId}
-                    onChange={e => setRoomId(e.target.value.replace(/[^0-9]/g, ''))}
-                  />
-                  <button onClick={() => roomId && joinRoom(roomId)} className="px-6 bg-joy-lavender text-white font-black rounded-2xl hover:bg-joy-lavender/90 shadow-lg shadow-joy-lavender/30 transition-all text-sm">
-                    ENTRAR
-                  </button>
-                </div>
+          <>
+            <div className="w-full max-w-md bg-white border-4 border-joy-pink p-6 rounded-[2rem] shadow-[0_20px_50px_rgba(254,148,180,0.3)] relative overflow-y-auto my-4 max-h-[90vh] flex flex-col">
+              {/* Audio Toggle Button */}
+              <button
+                onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+                className="absolute top-4 right-4 z-50 p-2 bg-white/80 backdrop-blur-sm border-2 border-joy-pink/20 rounded-full text-joy-pink hover:bg-joy-pink hover:text-white transition-all shadow-sm"
+                title={isAudioEnabled ? "Mutar Música" : "Tocar Música"}
+              >
+                {isAudioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              </button>
+              {/* Header / Cover */}
+              <div className="relative h-44 -mx-6 -mt-6 mb-4 overflow-hidden">
+                <img
+                  src="/images/capa do jogo.png"
+                  alt="JoyBomber Cover"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent"></div>
               </div>
-            ) : (
-              <div className="text-center space-y-2 py-1">
-                <div className="text-2xl font-black text-joy-pink tracking-widest animate-bounce">
-                  {roomId}
-                </div>
 
-                {/* Character Selection */}
-                <div className="bg-joy-bg/30 p-4 rounded-2xl border-2 border-joy-pink/10 my-4">
-                  <p className="text-[10px] font-black text-joy-pink uppercase tracking-widest mb-3">ESCOLHA SEU PERSONAGEM</p>
-                  <div className="flex justify-center gap-6">
-                    {['hello', 'menino'].map(char => {
-                      const isTaken = getConnectedPlayers().some(p => p.id !== playerId && p.character === char);
-                      const isSelected = selectedCharacter === char;
-                      return (
-                        <button
-                          key={char}
-                          disabled={isTaken}
-                          onClick={() => updateCharacterSelection(char)}
-                          className={clsx(
-                            "relative group transition-all p-2 rounded-2xl border-4",
-                            isSelected ? "border-joy-pink bg-white shadow-lg scale-110" : "border-transparent bg-white/50 hover:bg-white",
-                            isTaken && "opacity-20 grayscale pointer-events-none"
-                          )}
-                        >
-                          <img
-                            src={`/images/player_${char}.png`}
-                            alt={char}
-                            className="w-16 h-16 object-contain"
-                          />
-                          {isSelected && <div className="absolute -top-2 -right-2 bg-joy-pink text-white rounded-full p-1"><Check size={12} strokeWidth={4} /></div>}
-                        </button>
-                      );
-                    })}
+              <div className="text-center mb-4 flex flex-col items-center">
+                <img
+                  src="/images/nome do jogo.png"
+                  alt="JoyBomber Logo"
+                  className="h-16 object-contain drop-shadow-[0_2px_10px_rgba(254,148,180,0.3)] animate-float"
+                />
+                <p className="text-[10px] text-joy-deep-purple/60 tracking-[0.2em] font-black uppercase mt-2">Para tirar você do tédio</p>
+              </div>
+
+              <div class="mb-4 space-y-1">
+                <label class="text-[9px] text-joy-pink font-black tracking-widest uppercase ml-1">✧ SEU NOME ✧</label>
+                <input
+                  type="text"
+                  className="w-full bg-joy-bg/50 border-2 border-joy-pink/30 focus:border-joy-pink p-3 text-center tracking-widest outline-none uppercase font-black text-base rounded-2xl transition-all text-joy-deep-purple placeholder:text-joy-pink/20"
+                  placeholder="NOME"
+                  maxLength={12}
+                  value={playerName}
+                  onChange={e => {
+                    const val = e.target.value.toUpperCase();
+                    setPlayerName(val);
+                    localStorage.setItem('bomberName', val);
+                  }}
+                />
+              </div>
+
+              {status === 'lobby' ? (
+                <div className="space-y-3">
+                  <button onClick={createGame} className="w-full py-3 bg-joy-pink text-white rounded-2xl font-black tracking-widest hover:bg-joy-pink/90 hover:scale-[1.02] shadow-lg shadow-joy-pink/30 flex items-center justify-center gap-2 transition-all">
+                    <Play size={18} fill="currentColor" /> CRIAR SALA
+                  </button>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 bg-joy-bg/50 border-2 border-joy-lavender/50 p-3 text-center tracking-[0.2em] font-black focus:border-joy-lavender outline-none rounded-2xl text-sm"
+                      placeholder="CÓDIGO"
+                      maxLength={5}
+                      value={roomId}
+                      onChange={e => setRoomId(e.target.value.replace(/[^0-9]/g, ''))}
+                    />
+                    <button onClick={() => roomId && joinRoom(roomId)} className="px-6 bg-joy-lavender text-white font-black rounded-2xl hover:bg-joy-lavender/90 shadow-lg shadow-joy-lavender/30 transition-all text-sm">
+                      ENTRAR
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <div className="text-center space-y-2 py-1">
+                  <div className="text-2xl font-black text-joy-pink tracking-widest animate-bounce">
+                    {roomId}
+                  </div>
 
-                <div className="text-[9px] text-joy-pink/40 font-black uppercase tracking-widest">
-                  Esperando Oponente...
-                </div>
-                <div className="flex justify-center flex-col items-center gap-1">
-                  <div className="w-8 h-8 border-4 border-joy-bg border-t-joy-pink rounded-full animate-spin"></div>
-                  <span className="text-[9px] font-black text-joy-pink/60 uppercase">
-                    Amiguinhos: {getConnectedPlayers().length}
-                  </span>
-                </div>
+                  {/* Character Selection */}
+                  <div className="bg-joy-bg/30 p-4 rounded-2xl border-2 border-joy-pink/10 my-4">
+                    <p className="text-[10px] font-black text-joy-pink uppercase tracking-widest mb-3">ESCOLHA SEU PERSONAGEM</p>
+                    <div className="flex justify-center gap-6">
+                      {['hello', 'menino'].map(char => {
+                        const isTaken = getConnectedPlayers().some(p => p.id !== playerId && p.character === char);
+                        const isSelected = selectedCharacter === char;
+                        return (
+                          <button
+                            key={char}
+                            disabled={isTaken}
+                            onClick={() => updateCharacterSelection(char)}
+                            className={clsx(
+                              "relative group transition-all p-2 rounded-2xl border-4",
+                              isSelected ? "border-joy-pink bg-white shadow-lg scale-110" : "border-transparent bg-white/50 hover:bg-white",
+                              isTaken && "opacity-20 grayscale pointer-events-none"
+                            )}
+                          >
+                            <img
+                              src={`/images/player_${char}.png`}
+                              alt={char}
+                              className="w-16 h-16 object-contain"
+                            />
+                            {isSelected && <div className="absolute -top-2 -right-2 bg-joy-pink text-white rounded-full p-1"><Check size={12} strokeWidth={4} /></div>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-                {isHost && getConnectedPlayers().length >= 2 && (
-                  <button
-                    onClick={() => {
-                      const list = getConnectedPlayers().sort((a, b) => (a.online_at || '') < (b.online_at || '') ? -1 : 1);
-                      startGameLocal(list[0], list[1], channel);
-                    }}
-                    className="w-full py-4 bg-joy-mint text-white font-black text-lg rounded-2xl animate-pulse shadow-lg shadow-joy-mint/30 hover:scale-105 transition-all"
-                  >
-                    COMEÇAR AVENTURA!
+                  <div className="text-[9px] text-joy-pink/40 font-black uppercase tracking-widest">
+                    Esperando Oponente...
+                  </div>
+                  <div className="flex justify-center flex-col items-center gap-1">
+                    <div className="w-8 h-8 border-4 border-joy-bg border-t-joy-pink rounded-full animate-spin"></div>
+                    <span className="text-[9px] font-black text-joy-pink/60 uppercase">
+                      Amiguinhos: {getConnectedPlayers().length}
+                    </span>
+                  </div>
+
+                  {isHost && getConnectedPlayers().length >= 2 && (
+                    <button
+                      onClick={() => {
+                        const list = getConnectedPlayers().sort((a, b) => (a.online_at || '') < (b.online_at || '') ? -1 : 1);
+                        startGameLocal(list[0], list[1], channel);
+                      }}
+                      className="w-full py-4 bg-joy-mint text-white font-black text-lg rounded-2xl animate-pulse shadow-lg shadow-joy-mint/30 hover:scale-105 transition-all"
+                    >
+                      COMEÇAR AVENTURA!
+                    </button>
+                  )}
+
+                  <button onClick={handleLeaveGame} className="text-joy-pink/40 hover:text-joy-pink underline text-[10px] font-black uppercase">
+                    Voltar / Cancelar
                   </button>
-                )}
 
-                <button onClick={handleLeaveGame} className="text-joy-pink/40 hover:text-joy-pink underline text-[10px] font-black uppercase">
-                  Voltar / Cancelar
-                </button>
-
-              </div>
-            )}
-          </div>
-          <p className="mt-4 text-[10px] font-black text-joy-deep-purple/60 uppercase tracking-[0.4em] drop-shadow-sm">Criado por Deloam</p>
+                </div>
+              )}
+            </div>
+            <p className="mt-4 text-[10px] font-black text-joy-deep-purple/60 uppercase tracking-[0.4em] drop-shadow-sm">Criado por Deloam</p>
+          </>
         )}
 
         {isInGame && map && (
