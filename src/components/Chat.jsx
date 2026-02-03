@@ -71,7 +71,7 @@ export default function Chat({ channel, playerId, playerName, players }) {
     };
 
     return (
-        <div className="flex flex-col w-full max-w-sm h-[600px] bg-white border-4 border-joy-pink rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-in-right">
+        <div className="flex flex-col w-full max-w-sm h-[400px] bg-white border-4 border-joy-pink rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-in-right">
             {/* Header */}
             <div className="bg-joy-pink p-4 flex items-center gap-3">
                 <div className="bg-white/20 p-2 rounded-full">

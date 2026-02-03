@@ -39,8 +39,8 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                 : (GRID_WIDTH * CELL_SIZE + 150);
 
             const boardHeight = isPC
-                ? (GRID_HEIGHT * CELL_SIZE + 150) // Reduced height since HUD is on the side
-                : (GRID_HEIGHT * CELL_SIZE + 280);
+                ? (GRID_HEIGHT * CELL_SIZE + 250) // Increased buffer to account for margins and padding
+                : (GRID_HEIGHT * CELL_SIZE + 350);
 
             const availableWidth = window.innerWidth - 40;
             const availableHeight = window.innerHeight - 40;
@@ -452,7 +452,7 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
     };
 
     return (
-        <div className="flex flex-col items-center min-h-screen bg-joy-bg text-gray-800 p-4 md:p-8 relative overflow-x-hidden">
+        <div className="flex flex-col items-center min-h-screen bg-joy-bg text-gray-800 p-4 lg:py-4 md:px-8 relative overflow-x-hidden">
             {/* Main Content Area: HUD + Table */}
             <div className="flex flex-col lg:flex-row items-center lg:items-center justify-center gap-4 lg:gap-12 w-full max-w-[1600px] mt-8 lg:mt-0">
 
