@@ -33,8 +33,14 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         }
 
         const handleResize = () => {
-            const boardWidth = GRID_WIDTH * CELL_SIZE + 150; // accounting for padding
-            const boardHeight = GRID_HEIGHT * CELL_SIZE + 280; // HUD + footer + margins
+            const isPC = window.innerWidth >= 1024;
+            const boardWidth = isPC
+                ? (GRID_WIDTH * CELL_SIZE + 800) // HUD (300) + Board (600) + Chat (400) factor
+                : (GRID_WIDTH * CELL_SIZE + 150);
+
+            const boardHeight = isPC
+                ? (GRID_HEIGHT * CELL_SIZE + 150) // Reduced height since HUD is on the side
+                : (GRID_HEIGHT * CELL_SIZE + 280);
 
             const availableWidth = window.innerWidth - 40;
             const availableHeight = window.innerHeight - 40;
@@ -448,38 +454,39 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
     return (
         <div className="flex flex-col items-center min-h-screen bg-joy-bg text-gray-800 p-4 md:p-8 relative overflow-x-hidden">
             {/* Main Content Area: HUD + Table */}
-            <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 w-full max-w-[1400px]">
+            <div className="flex flex-col lg:flex-row items-center lg:items-center justify-center gap-4 lg:gap-12 w-full max-w-[1600px] mt-8 lg:mt-0">
 
-                {/* Left Side: Game HUD + Board */}
-                <div className="flex flex-col items-center gap-4 md:gap-8">
-                    {/* HUD */}
-                    <div className="w-full max-w-4xl flex justify-between font-sans z-30">
-                        {Object.entries(players).map(([pid, p]) => (
-                            <div key={pid} className={clsx(
-                                "flex flex-col gap-1 p-4 rounded-[2rem] bg-white border-4 transition-all shadow-lg",
-                                p.color === 'blue' ? "border-joy-mint text-joy-deep-purple" : "border-joy-pink text-joy-deep-purple",
-                                pid === playerId ? "scale-105" : "opacity-80 scale-95"
-                            )}>
-                                <div className="font-black text-xl flex items-center justify-between gap-6 uppercase tracking-tight">
-                                    <span className={p.color === 'blue' ? "text-joy-mint" : "text-joy-pink"}>
-                                        {p.name || (p.color === 'blue' ? 'JOGADOR 1' : 'JOGADOR 2')}
-                                    </span>
-                                    <div className="flex gap-1 text-joy-pink text-sm">
-                                        {Array.from({ length: 3 }).map((_, i) => (
-                                            <div key={i} className={clsx(i < p.lives ? "opacity-100 scale-125" : "opacity-20 grayscale", "transition-all")}>❤</div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-3 gap-4 text-[11px] font-black uppercase text-joy-deep-purple/40 mt-2">
-                                    <div className="flex items-center gap-1">
-                                        <img src="/images/icone.png" alt="Bomb" className="w-4 h-4 object-contain" /> {p.bombs}
-                                    </div>
-                                    <div className="flex items-center gap-1"><Flame size={14} strokeWidth={3} /> {p.range}</div>
-                                    <div className="flex items-center gap-1"><Footprints size={14} strokeWidth={3} /> {Math.round(((360 - (p.speed || 360)) / 40) + 1)}</div>
+                {/* Left Side: Game HUD (Moved to side on Desktop) */}
+                <div className="w-full lg:w-72 flex lg:flex-col justify-between lg:justify-center gap-4 z-30 order-1 lg:order-none">
+                    {Object.entries(players).map(([pid, p]) => (
+                        <div key={pid} className={clsx(
+                            "flex flex-col gap-1 p-3 md:p-4 rounded-[2rem] bg-white border-4 transition-all shadow-lg w-full max-w-[180px] lg:max-w-none",
+                            p.color === 'blue' ? "border-joy-mint text-joy-deep-purple" : "border-joy-pink text-joy-deep-purple",
+                            pid === playerId ? "scale-105" : "opacity-80 scale-95"
+                        )}>
+                            <div className="font-black text-sm md:text-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-1 lg:gap-6 uppercase tracking-tight">
+                                <span className={p.color === 'blue' ? "text-joy-mint" : "text-joy-pink"}>
+                                    {p.name || (p.color === 'blue' ? 'JOY' : 'OPONENTE')}
+                                </span>
+                                <div className="flex gap-1 text-joy-pink text-xs md:text-sm">
+                                    {Array.from({ length: 3 }).map((_, i) => (
+                                        <div key={i} className={clsx(i < p.lives ? "opacity-100 scale-110 lg:scale-125" : "opacity-20 grayscale", "transition-all")}>❤</div>
+                                    ))}
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                            <div className="grid grid-cols-3 gap-2 md:gap-4 text-[9px] md:text-[11px] font-black uppercase text-joy-deep-purple/40 mt-1 md:mt-2 border-t border-joy-bg pt-2">
+                                <div className="flex items-center gap-1">
+                                    <img src="/images/icone.png" alt="Bomb" className="w-3 md:w-4 h-3 md:h-4 object-contain" /> {p.bombs}
+                                </div>
+                                <div className="flex items-center gap-1"><Flame size={14} className="w-3 md:w-3.5" strokeWidth={3} /> {p.range}</div>
+                                <div className="flex items-center gap-1"><Footprints size={14} className="w-3 md:w-3.5" strokeWidth={3} /> {Math.round(((360 - (p.speed || 360)) / 40) + 1)}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Center: Board */}
+                <div className="flex flex-col items-center gap-4 order-2 lg:order-none">
 
                     {/* Game Over Modal */}
                     {gameOver && (
@@ -665,7 +672,7 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
 
                 {/* Right Side: Chat */}
                 {!isMobile && (
-                    <div className="hidden lg:block w-full max-w-sm mt-12 lg:mt-32">
+                    <div className="hidden lg:block w-full max-w-sm mt-0 order-3">
                         <Chat
                             channel={channel}
                             playerId={playerId}

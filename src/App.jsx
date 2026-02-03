@@ -409,7 +409,7 @@ export default function App() {
                 </div>
               )}
             </div>
-            <p className="mt-4 text-[10px] font-black text-joy-deep-purple/80 uppercase tracking-[0.4em] drop-shadow-sm">Criado por Deloam • v2.1</p>
+            <p className="mt-4 text-[10px] font-black text-joy-deep-purple/80 uppercase tracking-[0.4em] drop-shadow-sm">Criado por Deloam • v2.3</p>
           </>
         )}
 
