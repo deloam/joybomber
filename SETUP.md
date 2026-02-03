@@ -1,4 +1,4 @@
-# Neon Bomber - Guia de Configuração Multiplayer
+# Joyn Bomber - Guia de Configuração Multiplayer
 
 Este jogo utiliza o Supabase Realtime para sincronização entre jogadores.
 
