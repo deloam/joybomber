@@ -300,12 +300,12 @@ export default function App() {
               </div>
 
               <div class="mb-4 space-y-1">
-                <label class="text-[9px] text-joy-pink font-black tracking-widest uppercase ml-1">✧ SEU NOME ✧</label>
+                <label class="text-[15px] text-joy-pink font-black tracking-widest uppercase ml-1">✧ SEU NOME ✧</label>
                 <input
                   type="text"
-                  className="w-full bg-joy-bg/50 border-2 border-joy-pink/30 focus:border-joy-pink p-3 text-center tracking-widest outline-none uppercase font-black text-base rounded-2xl transition-all text-joy-deep-purple placeholder:text-joy-pink/20"
+                  className="w-full bg-joy-bg/50 border-2 border-joy-rosinha/80 focus:border-joy-pink p-3 text-center tracking-widest outline-none uppercase font-black text-base rounded-2xl transition-all text-joy-roxo/60 placeholder:text-joy-pink/80"
                   placeholder="NOME"
-                  maxLength={12}
+                  maxLength={8}
                   value={playerName}
                   onChange={e => {
                     const val = e.target.value.toUpperCase();
@@ -323,13 +323,13 @@ export default function App() {
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      className="flex-1 bg-joy-bg/50 border-2 border-joy-lavender/50 p-3 text-center tracking-[0.2em] font-black focus:border-joy-lavender outline-none rounded-2xl text-sm"
+                      className="flex-1 bg-joy-bg/50 border-2 border-joy-lavender/50 p-3 text-center tracking-[0.2em] font-black focus:border-joy-lavender outline-none rounded-2xl text-sm text-joy-roxo/60"
                       placeholder="CÓDIGO"
                       maxLength={5}
                       value={roomId}
                       onChange={e => setRoomId(e.target.value.replace(/[^0-9]/g, ''))}
                     />
-                    <button onClick={() => roomId && joinRoom(roomId)} className="px-6 bg-joy-lavender text-white font-black rounded-2xl hover:bg-joy-lavender/90 shadow-lg shadow-joy-lavender/30 transition-all text-sm">
+                    <button onClick={() => roomId && joinRoom(roomId)} className="px-6 bg-joy-roxo/70 text-white font-black rounded-2xl hover:bg-joy-roxo/90 shadow-lg shadow-joy-lavender/30 transition-all text-sm">
                       ENTRAR
                     </button>
                   </div>
@@ -386,20 +386,20 @@ export default function App() {
                         const list = getConnectedPlayers().sort((a, b) => (a.online_at || '') < (b.online_at || '') ? -1 : 1);
                         startGameLocal(list[0], list[1], channel);
                       }}
-                      className="w-full py-4 bg-joy-mint text-white font-black text-lg rounded-2xl animate-pulse shadow-lg shadow-joy-mint/30 hover:scale-105 transition-all"
+                      className="w-full py-4 bg-joy-verde text-white font-black text-lg rounded-2xl animate-pulse shadow-lg shadow-joy-mint/30 hover:scale-105 transition-all"
                     >
                       COMEÇAR AVENTURA!
                     </button>
                   )}
 
-                  <button onClick={handleLeaveGame} className="text-joy-pink/40 hover:text-joy-pink underline text-[10px] font-black uppercase">
+                  <button onClick={handleLeaveGame} className="text-joy-roxo/80 hover:text-joy-pink underline text-[10px] font-black uppercase">
                     Voltar / Cancelar
                   </button>
 
                 </div>
               )}
             </div>
-            <p className="mt-4 text-[10px] font-black text-joy-deep-purple/60 uppercase tracking-[0.4em] drop-shadow-sm">Criado por Deloam</p>
+            <p className="mt-4 text-[10px] font-black text-joy-deep-purple/80 uppercase tracking-[0.4em] drop-shadow-sm">Criado por Deloam</p>
           </>
         )}
 
