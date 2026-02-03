@@ -395,12 +395,10 @@ export default function App() {
                   Voltar / Cancelar
                 </button>
 
-                <div className="mt-6 pt-4 border-t border-joy-pink/5 text-center">
-                  <p className="text-[9px] font-black text-joy-pink/30 uppercase tracking-[0.3em]">Criado por Deloam</p>
-                </div>
               </div>
             )}
           </div>
+          <p className="mt-4 text-[10px] font-black text-joy-deep-purple/60 uppercase tracking-[0.4em] drop-shadow-sm">Criado por Deloam</p>
         )}
 
         {isInGame && map && (
