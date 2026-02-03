@@ -394,6 +394,10 @@ export default function App() {
                 <button onClick={handleLeaveGame} className="text-joy-pink/40 hover:text-joy-pink underline text-[10px] font-black uppercase">
                   Voltar / Cancelar
                 </button>
+
+                <div className="mt-6 pt-4 border-t border-joy-pink/5 text-center">
+                  <p className="text-[9px] font-black text-joy-pink/30 uppercase tracking-[0.3em]">Criado por Deloam</p>
+                </div>
               </div>
             )}
           </div>
