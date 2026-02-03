@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GRID_WIDTH, GRID_HEIGHT, BLOCK, POWERUP, isValidMove } from '../utils/gameLogic';
 import { Bomb, Flame, Footprints, Trophy, Skull, Volume2, VolumeX } from 'lucide-react';
 import { WallSprite, CrateSprite, BombSprite, PlayerSprite, ExplosionSprite } from './Sprites';
+import { VirtualJoystick, BombButton } from './MobileControls';
+import Chat from './Chat';
 import clsx from 'clsx';
 
 // Constants
@@ -20,6 +22,37 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
 
     // Authoritative local position for smooth 60fps movement
     const localPosRef = useRef(initialPlayers[playerId] ? { x: initialPlayers[playerId].x, y: initialPlayers[playerId].y } : { x: 1, y: 1 });
+    const joystickDir = useRef({ x: 0, y: 0 });
+    const [isMobile, setIsMobile] = useState(false);
+    const [scale, setScale] = useState(1);
+
+    useEffect(() => {
+        // Simple touch detection
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            setIsMobile(true);
+        }
+
+        const handleResize = () => {
+            const boardWidth = GRID_WIDTH * CELL_SIZE + 150; // accounting for padding
+            const boardHeight = GRID_HEIGHT * CELL_SIZE + 280; // HUD + footer + margins
+
+            const availableWidth = window.innerWidth - 40;
+            const availableHeight = window.innerHeight - 40;
+
+            const scaleW = availableWidth / boardWidth;
+            const scaleH = availableHeight / boardHeight;
+
+            let newScale = Math.min(scaleW, scaleH);
+            if (newScale > 1) newScale = 1;
+            if (newScale < 0.4) newScale = 0.4; // Safety minimum
+
+            setScale(newScale);
+        };
+
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // --- Audio ---
     const bgMusicRef = useRef(null);
@@ -40,7 +73,6 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
             return;
         }
 
-        // Se o áudio estiver ligado e não tiver música tocando, inicia
         if (!bgMusicRef.current) {
             const startAudio = playSound('/sounds/musica de inicio de jogo.wav', 0.3, false);
             bgMusicRef.current = startAudio;
@@ -62,7 +94,6 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         };
     }, [isAudioEnabled]);
 
-    // Cleanup on unmount
     useEffect(() => {
         return () => {
             if (bgMusicRef.current) {
@@ -77,7 +108,6 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         stateRef.current = { map, players, bombs, items, gameOver };
     }, [map, players, bombs, items, gameOver]);
 
-    // Sync local state if props change (e.g. game starts or resets)
     useEffect(() => {
         if (initialPlayers && Object.keys(initialPlayers).length > 0) {
             setPlayers(initialPlayers);
@@ -87,34 +117,27 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         }
     }, [initialPlayers, playerId]);
 
-    // --- Realtime Listeners ---
     useEffect(() => {
         if (!channel) return;
 
         const subscription = channel
             .on('broadcast', { event: 'move' }, ({ payload }) => {
-                if (payload.id === playerId) return; // Prevent self-feedback loop
+                if (payload.id === playerId) return;
                 setPlayers(prev => ({ ...prev, [payload.id]: payload.data }));
             })
             .on('broadcast', { event: 'place_bomb' }, ({ payload }) => {
-                // Determine ID (sender should provide it, but fallback if older client)
                 const bombId = payload.id || Date.now() + Math.random();
                 const newBomb = { ...payload, id: bombId };
-
                 setBombs(prev => {
-                    // Avoid duplicates if we already added it locally
                     if (prev.some(b => b.id === newBomb.id)) return prev;
                     return [...prev, newBomb];
                 });
-
-                // Trigger explosion ONLY if we didn't add it locally (i.e. it's from someone else)
                 if (payload.ownerId !== playerId) {
                     playSound('/sounds/coloca bomba.wav', 0.5);
                     scheduleExplosion(newBomb);
                 }
             })
             .on('broadcast', { event: 'map_update' }, ({ payload }) => {
-                // Host sent a map update (broken crates, etc)
                 setMap(payload.map);
                 if (payload.items) setItems(payload.items);
             })
@@ -141,7 +164,7 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                         ...prev[payload.id],
                         lives: payload.lives,
                         alive: payload.lives > 0,
-                        invincibleUntil: payload.invincibleUntil // Sync invincibility
+                        invincibleUntil: payload.invincibleUntil
                     }
                 }));
                 playSound('/sounds/sofre dano.wav', 0.6);
@@ -151,21 +174,14 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
             })
             .subscribe();
 
-        return () => {
-            // channel.unsubscribe() is handled in parent
-        };
+        return () => { };
     }, [channel]);
-
-    // --- Logic ---
 
     const bombTimeouts = useRef({});
     const lastMoveTime = useRef(0);
 
-    // --- Logic ---
-
     const scheduleExplosion = (bomb) => {
-        if (bombTimeouts.current[bomb.id]) return; // Already scheduled
-
+        if (bombTimeouts.current[bomb.id]) return;
         bombTimeouts.current[bomb.id] = setTimeout(() => {
             handleExplosion(bomb);
             delete bombTimeouts.current[bomb.id];
@@ -173,16 +189,13 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
     };
 
     const handleExplosion = (bomb) => {
-        // Clear timeout if triggered early (Chain Reaction)
         if (bombTimeouts.current[bomb.id]) {
             clearTimeout(bombTimeouts.current[bomb.id]);
             delete bombTimeouts.current[bomb.id];
         }
-
         playSound('/sounds/explosao da bomba.wav', 1.0);
         setBombs(prev => prev.filter(b => b.id !== bomb.id));
 
-        // Calculate flame spread
         const flames = [{ x: bomb.x, y: bomb.y }];
         const range = bomb.range || 1;
         const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
@@ -192,20 +205,14 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                 const nx = bomb.x + dx * i;
                 const ny = bomb.y + dy * i;
                 if (nx < 0 || nx >= GRID_WIDTH || ny < 0 || ny >= GRID_HEIGHT) break;
-
                 const idx = ny * GRID_WIDTH + nx;
                 const cell = stateRef.current.map[idx];
-
                 if (cell.type === BLOCK.WALL) break;
-
                 flames.push({ x: nx, y: ny });
-
                 if (cell.type === BLOCK.CRATE) break;
             }
         });
 
-        // Chain Reaction: Check if any OTHER bombs are in the flames
-        // We use stateRef to get current bombs, excluding the one currently exploding
         const otherBombs = stateRef.current.bombs.filter(b => b.id !== bomb.id);
         const bombsHit = otherBombs.filter(b => flames.some(f => f.x === b.x && f.y === b.y));
 
@@ -217,7 +224,6 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
             }
         });
 
-        // Add visuals
         const timestamp = Date.now();
         const newExplosions = flames.map((f, i) => ({ ...f, id: `${timestamp}-${i}-${Math.random()}` }));
         setExplosions(prev => [...prev, ...newExplosions]);
@@ -227,7 +233,6 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
             setExplosions(prev => prev.filter(e => !idsToRemove.has(e.id)));
         }, EXPLOSION_DURATION);
 
-        // --- HOST LOGIC: State Changes ---
         if (isHost && !stateRef.current.gameOver) {
             handleHostExplosionEffects(flames, bomb.ownerId);
         }
@@ -238,13 +243,11 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         const newMap = [...stateRef.current.map];
         const newItems = [...stateRef.current.items];
         let winner = null;
-        const hitPlayers = new Set(); // Avoid double hits per tick
+        const hitPlayers = new Set();
 
         flames.forEach(f => {
             const idx = f.y * GRID_WIDTH + f.x;
             let justSpawned = false;
-
-            // 1. Destroy Crates
             if (newMap[idx].type === BLOCK.CRATE) {
                 const powerupType = newMap[idx].powerup;
                 newMap[idx] = { ...newMap[idx], type: BLOCK.EMPTY };
@@ -254,15 +257,11 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                     justSpawned = true;
                 }
             }
-
-            // 2. Hit Players
             Object.entries(stateRef.current.players).forEach(([pid, p]) => {
                 if (Math.round(p.x) === f.x && Math.round(p.y) === f.y) {
                     hitPlayers.add(pid);
                 }
             });
-
-            // 3. Destroy Items
             if (!justSpawned) {
                 const itemIdx = newItems.findIndex(i => i.x === f.x && i.y === f.y);
                 if (itemIdx !== -1) {
@@ -306,7 +305,6 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         }
     };
 
-    // --- Input Handling (Game Loop) ---
     const keysPressed = useRef({});
     const lastTime = useRef(0);
     const lastNetworkUpdate = useRef(0);
@@ -345,11 +343,16 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
             keysPressed.current['SpaceLocked'] = false;
         }
 
-        let dx = 0; let dy = 0;
+        let dx = joystickDir.current.x;
+        let dy = joystickDir.current.y;
+
         if (keysPressed.current['ArrowUp'] || keysPressed.current['KeyW'] || keysPressed.current['w'] || keysPressed.current['W']) dy -= 1;
         if (keysPressed.current['ArrowDown'] || keysPressed.current['KeyS'] || keysPressed.current['s'] || keysPressed.current['S']) dy += 1;
         if (keysPressed.current['ArrowLeft'] || keysPressed.current['KeyA'] || keysPressed.current['a'] || keysPressed.current['A']) dx -= 1;
         if (keysPressed.current['ArrowRight'] || keysPressed.current['KeyD'] || keysPressed.current['d'] || keysPressed.current['D']) dx += 1;
+
+        if (Math.abs(dx) < 0.2) dx = 0;
+        if (Math.abs(dy) < 0.2) dy = 0;
 
         if (dx !== 0 || dy !== 0) {
             const length = Math.sqrt(dx * dx + dy * dy);
@@ -364,14 +367,12 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
             let finalX = localPosRef.current.x;
             let finalY = localPosRef.current.y;
 
-            // --- Enhanced Movement with Smooth Sliding / Corner Nudging ---
-            const SLIDE_THRESHOLD = 0.4; // How far off-center we can be to trigger sliding
+            const SLIDE_THRESHOLD = 0.4;
 
             if (dx !== 0) {
                 if (isValidMove(stateRef.current.map, nextX, localPosRef.current.y, stateRef.current.bombs, localPosRef.current.x, localPosRef.current.y)) {
                     finalX = nextX;
                 } else if (dy === 0) {
-                    // Not moving vertically, but horizontally blocked: Try to nudge vertically towards center
                     const centerY = Math.round(localPosRef.current.y);
                     const diffY = centerY - localPosRef.current.y;
                     if (Math.abs(diffY) > 0.01 && Math.abs(diffY) < SLIDE_THRESHOLD) {
@@ -389,7 +390,6 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                 if (isValidMove(stateRef.current.map, finalX, nextY, stateRef.current.bombs, finalX, localPosRef.current.y)) {
                     finalY = nextY;
                 } else if (dx === 0) {
-                    // Not moving horizontally, but vertically blocked: Try to nudge horizontally towards center
                     const centerX = Math.round(localPosRef.current.x);
                     const diffX = centerX - localPosRef.current.x;
                     if (Math.abs(diffX) > 0.01 && Math.abs(diffX) < SLIDE_THRESHOLD) {
@@ -441,208 +441,229 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         playSound('/sounds/pegou item.wav', 0.5);
         const newItems = stateRef.current.items.filter((_, i) => i !== itemIdx);
         setItems(newItems);
-
-        // Broadcast collection to everyone (including host)
-        channel.send({
-            type: 'broadcast',
-            event: 'item_collected',
-            payload: { x: item.x, y: item.y }
-        });
-
+        channel.send({ type: 'broadcast', event: 'item_collected', payload: { x: item.x, y: item.y } });
         return updates;
     };
 
     return (
-        <div className="flex flex-col items-center justify-between min-h-screen bg-joy-bg text-gray-800 p-8 relative">
-            {/* HUD */}
-            <div className="w-full max-w-4xl flex justify-between font-sans z-30">
-                {Object.entries(players).map(([pid, p]) => (
-                    <div key={pid} className={clsx(
-                        "flex flex-col gap-1 p-4 rounded-[2rem] bg-white border-4 transition-all shadow-lg",
-                        p.color === 'blue' ? "border-joy-mint text-joy-deep-purple" : "border-joy-pink text-joy-deep-purple",
-                        pid === playerId ? "scale-105" : "opacity-80 scale-95"
-                    )}>
-                        <div className="font-black text-xl flex items-center justify-between gap-6 uppercase tracking-tight">
-                            <span className={p.color === 'blue' ? "text-joy-mint" : "text-joy-pink"}>
-                                {p.name || (p.color === 'blue' ? 'JOGADOR 1' : 'JOGADOR 2')}
-                            </span>
-                            <div className="flex gap-1 text-joy-pink text-sm">
-                                {Array.from({ length: 3 }).map((_, i) => (
-                                    <div key={i} className={clsx(i < p.lives ? "opacity-100 scale-125" : "opacity-20 grayscale", "transition-all")}>❤</div>
-                                ))}
+        <div className="flex flex-col items-center min-h-screen bg-joy-bg text-gray-800 p-4 md:p-8 relative overflow-x-hidden">
+            {/* Main Content Area: HUD + Table */}
+            <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 w-full max-w-[1400px]">
+
+                {/* Left Side: Game HUD + Board */}
+                <div className="flex flex-col items-center gap-4 md:gap-8">
+                    {/* HUD */}
+                    <div className="w-full max-w-4xl flex justify-between font-sans z-30">
+                        {Object.entries(players).map(([pid, p]) => (
+                            <div key={pid} className={clsx(
+                                "flex flex-col gap-1 p-4 rounded-[2rem] bg-white border-4 transition-all shadow-lg",
+                                p.color === 'blue' ? "border-joy-mint text-joy-deep-purple" : "border-joy-pink text-joy-deep-purple",
+                                pid === playerId ? "scale-105" : "opacity-80 scale-95"
+                            )}>
+                                <div className="font-black text-xl flex items-center justify-between gap-6 uppercase tracking-tight">
+                                    <span className={p.color === 'blue' ? "text-joy-mint" : "text-joy-pink"}>
+                                        {p.name || (p.color === 'blue' ? 'JOGADOR 1' : 'JOGADOR 2')}
+                                    </span>
+                                    <div className="flex gap-1 text-joy-pink text-sm">
+                                        {Array.from({ length: 3 }).map((_, i) => (
+                                            <div key={i} className={clsx(i < p.lives ? "opacity-100 scale-125" : "opacity-20 grayscale", "transition-all")}>❤</div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-4 text-[11px] font-black uppercase text-joy-deep-purple/40 mt-2">
+                                    <div className="flex items-center gap-1">
+                                        <img src="/images/icone.png" alt="Bomb" className="w-4 h-4 object-contain" /> {p.bombs}
+                                    </div>
+                                    <div className="flex items-center gap-1"><Flame size={14} strokeWidth={3} /> {p.range}</div>
+                                    <div className="flex items-center gap-1"><Footprints size={14} strokeWidth={3} /> {Math.round(((360 - (p.speed || 360)) / 40) + 1)}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Game Over Modal */}
+                    {gameOver && (
+                        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md p-4 text-center">
+                            <h1 className="text-5xl md:text-7xl font-black text-joy-pink drop-shadow-[0_4px_0_#fff] mb-8 animate-bounce leading-tight">
+                                {gameOver.winner === playerId ? "VOCÊ VENCEU! ✨" : "TENTE DE NOVO! 🌸"}
+                            </h1>
+                            <div className="flex flex-col gap-4">
+                                <button
+                                    onClick={() => {
+                                        if (rematchVotes.includes(playerId)) return;
+                                        const newVotes = [...new Set([...rematchVotes, playerId])];
+                                        setRematchVotes(newVotes);
+                                        channel.send({ type: 'broadcast', event: 'vote_restart', payload: { id: playerId } });
+                                        if (isHost && newVotes.length >= 2) onRestart();
+                                    }}
+                                    className="px-12 py-5 bg-joy-pink text-white rounded-3xl text-2xl font-black uppercase tracking-widest transition-all shadow-[0_10px_0_#e6789b] active:translate-y-1 active:shadow-none disabled:opacity-50"
+                                    disabled={rematchVotes.includes(playerId)}
+                                >
+                                    {rematchVotes.includes(playerId) ? `Aguardando... (${rematchVotes.length}/2)` : "JOGAR MAIS! ♡"}
+                                </button>
+                                <button onClick={onLeave} className="px-8 py-3 bg-transparent border-4 border-joy-pink/20 text-joy-pink/60 hover:text-joy-pink hover:border-joy-pink rounded-3xl text-sm font-black uppercase tracking-widest transition-all">
+                                    Voltar ao Início
+                                </button>
                             </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-4 text-[11px] font-black uppercase text-joy-deep-purple/40 mt-2">
-                            <div className="flex items-center gap-1">
-                                <img src="/images/icone.png" alt="Bomb" className="w-4 h-4 object-contain" /> {p.bombs}
+                    )}
+
+                    {/* Quit Button */}
+                    <div className="absolute bottom-8 right-8 flex gap-2 z-40">
+                        <button
+                            onClick={onToggleAudio}
+                            className="p-4 bg-white border-4 border-joy-pink/20 text-joy-pink hover:bg-joy-pink hover:text-white rounded-2xl transition-all font-black text-xs shadow-lg"
+                            title={isAudioEnabled ? "Mutar Música" : "Tocar Música"}
+                        >
+                            {isAudioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                        </button>
+                        <button
+                            onClick={onLeave}
+                            className="p-4 bg-white border-4 border-joy-pink/20 text-joy-pink hover:bg-joy-pink hover:text-white rounded-2xl transition-all font-black text-xs shadow-lg uppercase tracking-widest"
+                            title="Sair do Jogo"
+                        >
+                            ✕ SAIR DA PARTIDA
+                        </button>
+                    </div>
+
+                    {/* Board Container */}
+                    <div style={{ transform: `scale(${scale})`, transformOrigin: 'center top' }} className="z-20">
+                        <div
+                            className="relative bg-joy-ground-purple border-8 border-joy-deep-purple rounded-[4rem] shadow-[0_30px_60px_rgba(254,148,180,0.2)] p-12"
+                            style={{
+                                width: GRID_WIDTH * CELL_SIZE + 112,
+                                height: GRID_HEIGHT * CELL_SIZE + 112,
+                            }}
+                        >
+                            <div className="relative w-full h-full">
+                                <div className="absolute inset-0 opacity-20 pointer-events-none"
+                                    style={{
+                                        backgroundImage: `linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px)`,
+                                        backgroundSize: `${CELL_SIZE}px ${CELL_SIZE}px`
+                                    }}
+                                />
+
+                                {map.map((cell, i) => {
+                                    const x = i % GRID_WIDTH;
+                                    const y = Math.floor(i / GRID_WIDTH);
+                                    if (cell.type === BLOCK.EMPTY) return null;
+                                    return (
+                                        <div
+                                            key={i}
+                                            className="absolute top-0 left-0"
+                                            style={{
+                                                width: CELL_SIZE, height: CELL_SIZE,
+                                                transform: `translate(${x * CELL_SIZE}px, ${y * CELL_SIZE}px)`
+                                            }}
+                                        >
+                                            {cell.type === BLOCK.WALL && <WallSprite />}
+                                            {cell.type === BLOCK.CRATE && <CrateSprite />}
+                                        </div>
+                                    );
+                                })}
+
+                                {items.map((item, i) => (
+                                    <div
+                                        key={`item-${i}`}
+                                        className="absolute flex items-center justify-center animate-bounce-slow"
+                                        style={{
+                                            width: CELL_SIZE, height: CELL_SIZE,
+                                            transform: `translate(${item.x * CELL_SIZE}px, ${item.y * CELL_SIZE}px)`
+                                        }}
+                                    >
+                                        {item.type === POWERUP.BOMB && <Bomb className="text-joy-wall-purple" size={32} />}
+                                        {item.type === POWERUP.FIRE && <Flame className="text-joy-wall-purple" size={32} />}
+                                        {item.type === POWERUP.SPEED && <Footprints className="text-joy-wall-purple" size={32} />}
+                                    </div>
+                                ))}
+
+                                {bombs.map((bomb) => (
+                                    <div
+                                        key={bomb.id}
+                                        className="absolute flex items-center justify-center z-10"
+                                        style={{
+                                            width: CELL_SIZE, height: CELL_SIZE,
+                                            transform: `translate(${bomb.x * CELL_SIZE}px, ${bomb.y * CELL_SIZE}px)`
+                                        }}
+                                    >
+                                        <div className="w-full h-full scale-90">
+                                            <BombSprite />
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {explosions.map((exp) => (
+                                    <div
+                                        key={exp.id}
+                                        className="absolute flex items-center justify-center z-20"
+                                        style={{
+                                            width: CELL_SIZE, height: CELL_SIZE,
+                                            transform: `translate(${exp.x * CELL_SIZE}px, ${exp.y * CELL_SIZE}px)`
+                                        }}
+                                    >
+                                        <ExplosionSprite />
+                                    </div>
+                                ))}
+
+                                {Object.entries(players).map(([pid, p]) => {
+                                    const isInvincible = p.invincibleUntil && Date.now() < p.invincibleUntil;
+                                    return (
+                                        <div
+                                            key={pid}
+                                            className={clsx(
+                                                "absolute flex items-center justify-center z-30 transition-all duration-100",
+                                                isInvincible && "animate-blink"
+                                            )}
+                                            style={{
+                                                width: CELL_SIZE, height: CELL_SIZE,
+                                                transform: `translate(${p.x * CELL_SIZE}px, ${p.y * CELL_SIZE}px)`
+                                            }}
+                                        >
+                                            <div className="w-full h-full scale-110">
+                                                <PlayerSprite color={p.color} isSelf={pid === playerId} character={p.character} />
+                                            </div>
+                                            <div className={`absolute -top-5 text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap bg-white border-2 ${pid === playerId ? "text-joy-mint border-joy-mint" : "text-joy-pink border-joy-pink"}`}>
+                                                {p.name || (pid === playerId ? "VOCÊ" : "INIMIGO")}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                            <div className="flex items-center gap-1"><Flame size={14} strokeWidth={3} /> {p.range}</div>
-                            <div className="flex items-center gap-1"><Footprints size={14} strokeWidth={3} /> {Math.round(((360 - (p.speed || 360)) / 40) + 1)}</div>
+                        </div>
+
+                        <div className="mt-8 text-joy-pink/40 text-[10px] font-black uppercase tracking-[0.2em] text-center">
+                            WASD • SETAS • ESPAÇO
                         </div>
                     </div>
-                ))}
+                </div>
+
+                {/* Right Side: Chat */}
+                {!isMobile && (
+                    <div className="hidden lg:block w-full max-w-sm mt-12 lg:mt-32">
+                        <Chat
+                            channel={channel}
+                            playerId={playerId}
+                            playerName={players[playerId]?.name || 'Jogador'}
+                            players={players}
+                        />
+                    </div>
+                )}
             </div>
 
-            {/* Game Over Modal */}
-            {gameOver && (
-                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md p-4 text-center">
-                    <h1 className="text-5xl md:text-7xl font-black text-joy-pink drop-shadow-[0_4px_0_#fff] mb-8 animate-bounce leading-tight">
-                        {gameOver.winner === playerId ? "VOCÊ VENCEU! ✨" : "TENTE DE NOVO! 🌸"}
-                    </h1>
-                    <div className="flex flex-col gap-4">
-                        <button
-                            onClick={() => {
-                                if (rematchVotes.includes(playerId)) return;
-                                const newVotes = [...new Set([...rematchVotes, playerId])];
-                                setRematchVotes(newVotes);
-                                channel.send({ type: 'broadcast', event: 'vote_restart', payload: { id: playerId } });
-                                if (isHost && newVotes.length >= 2) onRestart();
-                            }}
-                            className="px-12 py-5 bg-joy-pink text-white rounded-3xl text-2xl font-black uppercase tracking-widest transition-all shadow-[0_10px_0_#e6789b] active:translate-y-1 active:shadow-none disabled:opacity-50"
-                            disabled={rematchVotes.includes(playerId)}
-                        >
-                            {rematchVotes.includes(playerId) ? `Aguardando... (${rematchVotes.length}/2)` : "JOGAR MAIS! ♡"}
-                        </button>
-                        <button onClick={onLeave} className="px-8 py-3 bg-transparent border-4 border-joy-pink/20 text-joy-pink/60 hover:text-joy-pink hover:border-joy-pink rounded-3xl text-sm font-black uppercase tracking-widest transition-all">
-                            Voltar ao Início
-                        </button>
+            {/* Mobile Controls */}
+            {isMobile && !gameOver && (
+                <div className="fixed inset-x-0 bottom-12 px-8 flex justify-between items-end pointer-events-none z-50">
+                    <div className="pointer-events-auto">
+                        <VirtualJoystick onMove={(dir) => joystickDir.current = dir} />
+                    </div>
+                    <div className="pointer-events-auto">
+                        <BombButton onPress={() => {
+                            const myPlayer = stateRef.current.players[playerId];
+                            if (myPlayer && myPlayer.alive) tryPlaceBomb(myPlayer);
+                        }} />
                     </div>
                 </div>
             )}
-
-            {/* Quit Button */}
-            <div className="absolute bottom-8 right-8 flex gap-2 z-40">
-                <button
-                    onClick={onToggleAudio}
-                    className="p-4 bg-white border-4 border-joy-pink/20 text-joy-pink hover:bg-joy-pink hover:text-white rounded-2xl transition-all font-black text-xs shadow-lg"
-                    title={isAudioEnabled ? "Mutar Música" : "Tocar Música"}
-                >
-                    {isAudioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-                </button>
-                <button
-                    onClick={onLeave}
-                    className="p-4 bg-white border-4 border-joy-pink/20 text-joy-pink hover:bg-joy-pink hover:text-white rounded-2xl transition-all font-black text-xs shadow-lg uppercase tracking-widest"
-                    title="Sair do Jogo"
-                >
-                    ✕ SAIR DA PARTIDA
-                </button>
-            </div>
-
-            {/* Board Container */}
-            <div
-                className="relative bg-joy-ground-purple border-8 border-joy-deep-purple rounded-[4rem] shadow-[0_30px_60px_rgba(254,148,180,0.2)] p-12"
-                style={{
-                    width: GRID_WIDTH * CELL_SIZE + 112, // (p-12 = 96) + (border-8 = 16)
-                    height: GRID_HEIGHT * CELL_SIZE + 112,
-                }}
-            >
-                {/* Inner container for active game elements */}
-                <div className="relative w-full h-full">
-                    {/* Grid Floor */}
-                    <div className="absolute inset-0 opacity-20 pointer-events-none"
-                        style={{
-                            backgroundImage: `linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px)`,
-                            backgroundSize: `${CELL_SIZE}px ${CELL_SIZE}px`
-                        }}
-                    />
-
-                    {/* Map Objects */}
-                    {map.map((cell, i) => {
-                        const x = i % GRID_WIDTH;
-                        const y = Math.floor(i / GRID_WIDTH);
-                        if (cell.type === BLOCK.EMPTY) return null;
-                        return (
-                            <div
-                                key={i}
-                                className="absolute top-0 left-0"
-                                style={{
-                                    width: CELL_SIZE, height: CELL_SIZE,
-                                    transform: `translate(${x * CELL_SIZE}px, ${y * CELL_SIZE}px)`
-                                }}
-                            >
-                                {cell.type === BLOCK.WALL && <WallSprite />}
-                                {cell.type === BLOCK.CRATE && <CrateSprite />}
-                            </div>
-                        );
-                    })}
-
-                    {/* Items */}
-                    {items.map((item, i) => (
-                        <div
-                            key={`item-${i}`}
-                            className="absolute flex items-center justify-center animate-bounce-slow"
-                            style={{
-                                width: CELL_SIZE, height: CELL_SIZE,
-                                transform: `translate(${item.x * CELL_SIZE}px, ${item.y * CELL_SIZE}px)`
-                            }}
-                        >
-                            {item.type === POWERUP.BOMB && <Bomb className="text-joy-wall-purple" size={32} />}
-                            {item.type === POWERUP.FIRE && <Flame className="text-joy-wall-purple" size={32} />}
-                            {item.type === POWERUP.SPEED && <Footprints className="text-joy-wall-purple" size={32} />}
-                        </div>
-                    ))}
-
-                    {/* Bombs */}
-                    {bombs.map((bomb) => (
-                        <div
-                            key={bomb.id}
-                            className="absolute flex items-center justify-center z-10"
-                            style={{
-                                width: CELL_SIZE, height: CELL_SIZE,
-                                transform: `translate(${bomb.x * CELL_SIZE}px, ${bomb.y * CELL_SIZE}px)`
-                            }}
-                        >
-                            <div className="w-full h-full scale-90">
-                                <BombSprite />
-                            </div>
-                        </div>
-                    ))}
-
-                    {/* Explosions */}
-                    {explosions.map((exp) => (
-                        <div
-                            key={exp.id}
-                            className="absolute flex items-center justify-center z-20"
-                            style={{
-                                width: CELL_SIZE, height: CELL_SIZE,
-                                transform: `translate(${exp.x * CELL_SIZE}px, ${exp.y * CELL_SIZE}px)`
-                            }}
-                        >
-                            <ExplosionSprite />
-                        </div>
-                    ))}
-
-                    {/* Players */}
-                    {Object.entries(players).map(([pid, p]) => {
-                        const isInvincible = p.invincibleUntil && Date.now() < p.invincibleUntil;
-                        return (
-                            <div
-                                key={pid}
-                                className={clsx(
-                                    "absolute flex items-center justify-center z-30 transition-all duration-100",
-                                    isInvincible && "animate-blink"
-                                )}
-                                style={{
-                                    width: CELL_SIZE, height: CELL_SIZE,
-                                    transform: `translate(${p.x * CELL_SIZE}px, ${p.y * CELL_SIZE}px)`
-                                }}
-                            >
-                                <div className="w-full h-full scale-110">
-                                    <PlayerSprite color={p.color} isSelf={pid === playerId} character={p.character} />
-                                </div>
-                                <div className={`absolute -top-5 text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap bg-white border-2 ${pid === playerId ? "text-joy-mint border-joy-mint" : "text-joy-pink border-joy-pink"}`}>
-                                    {p.name || (pid === playerId ? "VOCÊ" : "INIMIGO")}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* Footer Instructions */}
-            <div className="mt-8 text-joy-pink/40 text-[10px] font-black uppercase tracking-[0.2em]">
-                WASD • SETAS • ESPAÇO
-            </div>
         </div>
     );
 }

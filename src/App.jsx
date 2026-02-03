@@ -267,7 +267,7 @@ export default function App() {
     <div className="bg-joy-bg min-h-screen text-gray-800 font-sans flex relative overflow-hidden transition-all duration-500">
       {!isInGame && <LobbyBackground />}
       {/* LEFT: Game Area */}
-      <div className={`flex-1 flex flex-col items-center justify-center p-4 transition-all duration-300 ${!isInGame ? 'w-full' : ''}`}>
+      <div className={`flex-1 flex flex-col items-center justify-start md:justify-center p-4 pt-12 md:pt-4 transition-all duration-300 ${!isInGame ? 'w-full' : ''}`}>
 
         {!isInGame && (
           <>
@@ -320,17 +320,17 @@ export default function App() {
                   <button onClick={createGame} className="w-full py-3 bg-joy-pink text-white rounded-2xl font-black tracking-widest hover:bg-joy-pink/90 hover:scale-[1.02] shadow-lg shadow-joy-pink/30 flex items-center justify-center gap-2 transition-all">
                     <Play size={18} fill="currentColor" /> CRIAR SALA
                   </button>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
                     <input
                       type="text"
-                      className="flex-1 bg-joy-bg/50 border-2 border-joy-lavender/50 p-3 text-center tracking-[0.2em] font-black focus:border-joy-lavender outline-none rounded-2xl text-sm text-joy-roxo/60"
+                      className="w-full bg-joy-bg/50 border-2 border-joy-lavender/50 p-3 text-center tracking-[0.2em] font-black focus:border-joy-lavender outline-none rounded-2xl text-sm text-joy-roxo/60"
                       placeholder="CÓDIGO"
                       maxLength={5}
                       value={roomId}
                       onChange={e => setRoomId(e.target.value.replace(/[^0-9]/g, ''))}
                     />
-                    <button onClick={() => roomId && joinRoom(roomId)} className="px-6 bg-joy-roxo/70 text-white font-black rounded-2xl hover:bg-joy-roxo/90 shadow-lg shadow-joy-lavender/30 transition-all text-sm">
-                      ENTRAR
+                    <button onClick={() => roomId && joinRoom(roomId)} className="w-full py-4 bg-joy-roxo/70 text-white font-black rounded-2xl hover:bg-joy-roxo/90 shadow-lg shadow-joy-lavender/30 transition-all text-sm uppercase tracking-widest">
+                      ENTRAR NA SALA
                     </button>
                   </div>
                 </div>

@@ -42,11 +42,16 @@ export default {
             animation: {
                 'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                 'float': 'float 3s ease-in-out infinite',
+                'slide-in-right': 'slideInRight 0.5s ease-out forwards',
             },
             keyframes: {
                 float: {
                     '0%, 100%': { transform: 'translateY(0)' },
                     '50%': { transform: 'translateY(-5px)' },
+                },
+                slideInRight: {
+                    '0%': { transform: 'translateX(100%)', opacity: '0' },
+                    '100%': { transform: 'translateX(0)', opacity: '1' },
                 }
             }
         },
