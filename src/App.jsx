@@ -22,6 +22,7 @@ export default function App() {
   const [presence, setPresence] = useState({});
   const [realtimeStatus, setRealtimeStatus] = useState('DISCONNECTED');
   const [logs, setLogs] = useState([]); // On-screen logs
+  const [isOffline, setIsOffline] = useState(false);
 
   const [map, setMap] = useState(null);
   const [players, setPlayers] = useState({});
@@ -209,12 +210,35 @@ export default function App() {
     });
   };
 
+  const startSinglePlayer = () => {
+    addLog('Starting Single Player Mode...');
+    const newMap = generateMap();
+    const p1 = { id: playerId, name: playerName, character: selectedCharacter || 'hello' };
+    const p2 = { id: 'bot-npc', name: 'INIMIGO', character: 'npc' };
+
+    const initialPlayers = {
+      [p1.id]: { x: 0, y: 0, color: 'blue', bombs: 1, range: 1, lives: 5, alive: true, speed: 360, name: p1.name, character: p1.character },
+      [p2.id]: { x: GRID_WIDTH - 1, y: GRID_HEIGHT - 1, color: 'pink', bombs: 1, range: 1, lives: 5, alive: true, speed: 360, name: p2.name, character: p2.character }
+    };
+
+    setIsOffline(true);
+    setMap(newMap);
+    setPlayers(initialPlayers);
+    setStatus('playing');
+    setIsInGame(true);
+    setIsHost(true);
+  };
+
   const handleRestart = () => {
     addLog('Restart clicked');
+    if (isOffline) {
+      startSinglePlayer();
+      return;
+    }
     if (isHost) {
       const list = getConnectedPlayers().sort((a, b) => (a.online_at || '') < (b.online_at || '') ? -1 : 1);
       if (list.length >= 2) startGameLocal(list[0], list[1], channel);
-    } else {
+    } else if (channel) {
       channel.send({ type: 'broadcast', event: 'request_restart', payload: {} });
     }
   };
@@ -225,6 +249,7 @@ export default function App() {
     }
     setPresence({});
     setIsInGame(false);
+    setIsOffline(false);
     setStatus('lobby');
     setMap(null);
     setRoomId('');
@@ -330,6 +355,9 @@ export default function App() {
                   <button onClick={createGame} className="w-full py-3 bg-joy-pink text-white rounded-2xl font-black tracking-widest hover:bg-joy-pink/90 hover:scale-[1.02] shadow-lg shadow-joy-pink/30 flex items-center justify-center gap-2 transition-all">
                     <Play size={18} fill="currentColor" /> CRIAR SALA
                   </button>
+                  <button onClick={startSinglePlayer} className="w-full py-3 bg-joy-roxo/40 border-4 border-joy-roxo/30 text-joy-roxo rounded-2xl font-black tracking-widest hover:bg-joy-roxo hover:text-white hover:scale-[1.02] shadow-lg shadow-joy-pink/10 flex items-center justify-center gap-2 transition-all">
+                    JOGAR SOZINHA
+                  </button>
                   <div className="flex flex-col gap-2">
                     <input
                       type="text"
@@ -354,7 +382,7 @@ export default function App() {
                   <div className="bg-joy-bg/30 p-4 rounded-2xl border-2 border-joy-pink/10 my-4">
                     <p className="text-[10px] font-black text-joy-pink uppercase tracking-widest mb-3">ESCOLHA SEU PERSONAGEM</p>
                     <div className="flex justify-center gap-6">
-                      {['hello', 'menino'].map(char => {
+                      {['hello', 'menino', 'npc'].map(char => {
                         const isTaken = getConnectedPlayers().some(p => p.id !== playerId && p.character === char);
                         const isSelected = selectedCharacter === char;
                         return (
@@ -410,7 +438,7 @@ export default function App() {
               )}
             </div>
             <div className="mt-6 inline-flex items-center px-4 py-1.5 bg-joy-rosinha/30 backdrop-blur-sm border-2 border-joy-pink/20 rounded-full shadow-sm animate-fade-in">
-              <p className="text-[9px] font-black text-joy-deep-purple/70 uppercase tracking-[0.3em]">Criado por Deloam • v2.4</p>
+              <p className="text-[9px] font-black text-joy-deep-purple/70 uppercase tracking-[0.3em]">Criado por Deloam • v2.5</p>
             </div>
           </>
         )}
@@ -427,6 +455,7 @@ export default function App() {
             onLeave={handleLeaveGame}
             isAudioEnabled={isAudioEnabled}
             onToggleAudio={() => setIsAudioEnabled(!isAudioEnabled)}
+            isOffline={isOffline}
           />
         ) : null}
       </div>

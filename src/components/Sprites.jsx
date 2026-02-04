@@ -48,7 +48,9 @@ export const BombSprite = () => (
 
 export const PlayerSprite = ({ color, isSelf, character }) => {
     const mainColor = color === 'blue' ? COLORS.p1 : COLORS.p2;
-    const imgSrc = character === 'menino' ? '/images/player_menino.png' : '/images/player_hello.png';
+    let imgSrc = '/images/player_hello.png';
+    if (character === 'menino') imgSrc = '/images/player_menino.png';
+    else if (character === 'npc') imgSrc = '/images/player_npc.png';
 
     return (
         <div className="w-full h-full relative flex items-center justify-center">

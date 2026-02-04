@@ -11,7 +11,7 @@ const CELL_SIZE = 40; // px
 const BOMB_TIMER = 3000;
 const EXPLOSION_DURATION = 1000;
 
-export default function Game({ channel, playerId, isHost, initialMap, initialPlayers, onRestart, onLeave, isAudioEnabled, onToggleAudio }) {
+export default function Game({ channel, playerId, isHost, initialMap, initialPlayers, onRestart, onLeave, isAudioEnabled, onToggleAudio, isOffline }) {
     const [map, setMap] = useState(initialMap);
     const [players, setPlayers] = useState(initialPlayers);
     const [bombs, setBombs] = useState([]);
@@ -39,8 +39,8 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                 : (GRID_WIDTH * CELL_SIZE + 150);
 
             const boardHeight = isPC
-                ? (GRID_HEIGHT * CELL_SIZE + 250) // Increased buffer to account for margins and padding
-                : (GRID_HEIGHT * CELL_SIZE + 350);
+                ? (GRID_HEIGHT * CELL_SIZE + 250)
+                : (GRID_HEIGHT * CELL_SIZE + 220); // More compact mobile buffer
 
             const availableWidth = window.innerWidth - 40;
             const availableHeight = window.innerHeight - 40;
@@ -122,6 +122,196 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
             }
         }
     }, [initialPlayers, playerId]);
+
+    // --- AI Logic (Offline Mode) ---
+    useEffect(() => {
+        if (!isOffline || gameOver) return;
+
+        const aiInterval = setInterval(() => {
+            const aiId = 'bot-npc';
+            const bot = stateRef.current.players[aiId];
+            if (!bot || !bot.alive) return;
+
+            const target = stateRef.current.players[playerId];
+            if (!target) return;
+
+            const currentMap = stateRef.current.map;
+            const currentBombs = stateRef.current.bombs;
+            const currentItems = stateRef.current.items;
+
+            // 1. Map Dangerous Zones
+            const dangerMap = new Array(GRID_WIDTH * GRID_HEIGHT).fill(false);
+            currentBombs.forEach(bomb => {
+                dangerMap[bomb.y * GRID_WIDTH + bomb.x] = true;
+                const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+                directions.forEach(([dx, dy]) => {
+                    for (let i = 1; i <= (bomb.range || 1); i++) {
+                        const nx = bomb.x + dx * i;
+                        const ny = bomb.y + dy * i;
+                        if (nx < 0 || nx >= GRID_WIDTH || ny < 0 || ny >= GRID_HEIGHT) break;
+                        const idx = ny * GRID_WIDTH + nx;
+                        if (currentMap[idx].type === BLOCK.WALL) break;
+                        dangerMap[idx] = true;
+                        if (currentMap[idx].type === BLOCK.CRATE) break;
+                    }
+                });
+            });
+
+            // 2. BFS for pathfinding
+            const getShortestPath = (startX, startY, targetPredicate, isWalkable) => {
+                const queue = [{ x: Math.round(startX), y: Math.round(startY), path: [] }];
+                const visited = new Set();
+                visited.add(`${Math.round(startX)},${Math.round(startY)}`);
+
+                while (queue.length > 0) {
+                    const { x, y, path } = queue.shift();
+
+                    if (targetPredicate(x, y)) return path;
+
+                    const neighbors = [
+                        { x: x, y: y - 1, label: 'up' },
+                        { x: x, y: y + 1, label: 'down' },
+                        { x: x - 1, y: y, label: 'left' },
+                        { x: x + 1, y: y, label: 'right' }
+                    ];
+
+                    for (const n of neighbors) {
+                        const key = `${n.x},${n.y}`;
+                        if (n.x >= 0 && n.x < GRID_WIDTH && n.y >= 0 && n.y < GRID_HEIGHT &&
+                            !visited.has(key) && isWalkable(n.x, n.y)) {
+                            visited.add(key);
+                            queue.push({ x: n.x, y: n.y, path: [...path, n] });
+                        }
+                    }
+                }
+                return null;
+            };
+
+            const isPositionEmpty = (x, y) => {
+                const idx = y * GRID_WIDTH + x;
+                return currentMap[idx].type === BLOCK.EMPTY && !currentBombs.some(b => b.x === x && b.y === y);
+            };
+
+            const bx = Math.round(bot.x);
+            const by = Math.round(bot.y);
+
+            // 3. Decision Making Logic
+            let move = null;
+            let action = null;
+
+            // PRIORITY 1: Escape Danger
+            if (dangerMap[by * GRID_WIDTH + bx]) {
+                const escapePath = getShortestPath(bx, by, (x, y) => !dangerMap[y * GRID_WIDTH + x], (x, y) => isPositionEmpty(x, y));
+                if (escapePath && escapePath.length > 0) {
+                    move = escapePath[0];
+                }
+            } else {
+                // PRIORITY 2: Attack Player
+                const tx = Math.round(target.x);
+                const ty = Math.round(target.y);
+                const distToPlayer = Math.abs(bx - tx) + Math.abs(by - ty);
+
+                // If player is in same row/col and in range, consider placing bomb
+                const inRange = (bx === tx && Math.abs(by - ty) <= bot.range) || (by === ty && Math.abs(bx - tx) <= bot.range);
+
+                if (inRange && distToPlayer <= bot.range) {
+                    // Check if we can escape if we place a bomb here
+                    const simulatedDangerMap = [...dangerMap];
+                    // Add current position and range to simulated danger
+                    simulatedDangerMap[by * GRID_WIDTH + bx] = true;
+                    [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
+                        for (let i = 1; i <= (bot.range || 1); i++) {
+                            const nx = bx + dx * i;
+                            const ny = by + dy * i;
+                            if (nx >= 0 && nx < GRID_WIDTH && ny >= 0 && ny < GRID_HEIGHT) {
+                                if (currentMap[ny * GRID_WIDTH + nx].type === BLOCK.WALL) break;
+                                simulatedDangerMap[ny * GRID_WIDTH + nx] = true;
+                                if (currentMap[ny * GRID_WIDTH + nx].type === BLOCK.CRATE) break;
+                            }
+                        }
+                    });
+
+                    const canEscape = getShortestPath(bx, by, (x, y) => !simulatedDangerMap[y * GRID_WIDTH + x], (x, y) => isPositionEmpty(x, y));
+                    if (canEscape) {
+                        action = 'bomb';
+                    }
+                }
+
+                if (!action) {
+                    // Move towards player
+                    const pathToPlayer = getShortestPath(bx, by, (x, y) => x === tx && y === ty, (x, y) => isPositionEmpty(x, y) && !dangerMap[y * GRID_WIDTH + x]);
+                    if (pathToPlayer && pathToPlayer.length > 0) {
+                        move = pathToPlayer[0];
+                    } else {
+                        // PRIORITY 3: Destroy nearest crate
+                        const pathToCrate = getShortestPath(bx, by, (x, y) => {
+                            return [[0, 1], [0, -1], [1, 0], [-1, 0]].some(([dx, dy]) => {
+                                const nx = x + dx;
+                                const ny = y + dy;
+                                return nx >= 0 && nx < GRID_WIDTH && ny >= 0 && ny < GRID_HEIGHT && currentMap[ny * GRID_WIDTH + nx].type === BLOCK.CRATE;
+                            });
+                        }, (x, y) => isPositionEmpty(x, y) && !dangerMap[y * GRID_WIDTH + x]);
+
+                        if (pathToCrate) {
+                            if (pathToCrate.length > 0) {
+                                move = pathToCrate[0];
+                            } else {
+                                // Already next to a crate! Place bomb if safe escape exists
+                                const simulatedDangerMap = [...dangerMap];
+                                simulatedDangerMap[by * GRID_WIDTH + bx] = true;
+                                [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
+                                    for (let i = 1; i <= (bot.range || 1); i++) {
+                                        const nx = bx + dx * i;
+                                        const ny = by + dy * i;
+                                        if (nx >= 0 && nx < GRID_WIDTH && ny >= 0 && ny < GRID_HEIGHT) {
+                                            if (currentMap[ny * GRID_WIDTH + nx].type === BLOCK.WALL) break;
+                                            simulatedDangerMap[ny * GRID_WIDTH + nx] = true;
+                                            if (currentMap[ny * GRID_WIDTH + nx].type === BLOCK.CRATE) break;
+                                        }
+                                    }
+                                });
+                                if (getShortestPath(bx, by, (x, y) => !simulatedDangerMap[y * GRID_WIDTH + x], (x, y) => isPositionEmpty(x, y))) {
+                                    action = 'bomb';
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4. Execute Move/Action
+            if (move) {
+                const nextX = move.x;
+                const nextY = move.y;
+                const updates = checkItemCollection(nextX, nextY, bot);
+                setPlayers(prev => ({
+                    ...prev,
+                    [aiId]: { ...bot, x: nextX, y: nextY, ...updates }
+                }));
+            }
+
+            if (action === 'bomb') {
+                tryPlaceBombAI(aiId, bot);
+            }
+
+        }, 400); // Slightly faster AI response
+
+        return () => clearInterval(aiInterval);
+    }, [isOffline, gameOver]);
+
+    const tryPlaceBombAI = (npcId, bot) => {
+        const myActiveBombs = stateRef.current.bombs.filter(b => b.ownerId === npcId).length;
+        if (myActiveBombs >= (bot.bombs || 1)) return;
+        const bx = Math.round(bot.x);
+        const by = Math.round(bot.y);
+
+        if (!stateRef.current.bombs.some(b => b.x === bx && b.y === by)) {
+            const bombPayload = { x: bx, y: by, ownerId: npcId, range: bot.range, id: `bomb-${npcId}-${Date.now()}` };
+            setBombs(prev => [...prev, bombPayload]);
+            playSound('/sounds/coloca bomba.wav', 0.5);
+            scheduleExplosion(bombPayload);
+        }
+    };
 
     useEffect(() => {
         if (!channel) return;
@@ -284,11 +474,13 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                 if (p.lives > 0 && (!p.invincibleUntil || now > p.invincibleUntil)) {
                     const newLives = p.lives - 1;
                     const newInvincibleUntil = now + 1000;
-                    channel.send({
-                        type: 'broadcast',
-                        event: 'update_lives',
-                        payload: { id: pid, lives: newLives, invincibleUntil: newInvincibleUntil }
-                    });
+                    if (channel) {
+                        channel.send({
+                            type: 'broadcast',
+                            event: 'update_lives',
+                            payload: { id: pid, lives: newLives, invincibleUntil: newInvincibleUntil }
+                        });
+                    }
                     setPlayers(prev => ({
                         ...prev, [pid]: { ...prev[pid], lives: newLives, alive: newLives > 0, invincibleUntil: newInvincibleUntil }
                     }));
@@ -303,10 +495,14 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         if (mapChanged) {
             setMap(newMap);
             setItems(newItems);
-            channel.send({ type: 'broadcast', event: 'map_update', payload: { map: newMap, items: newItems } });
+            if (channel) {
+                channel.send({ type: 'broadcast', event: 'map_update', payload: { map: newMap, items: newItems } });
+            }
         }
         if (winner) {
-            channel.send({ type: 'broadcast', event: 'game_over', payload: { winner } });
+            if (channel) {
+                channel.send({ type: 'broadcast', event: 'game_over', payload: { winner } });
+            }
             setGameOver({ winner });
         }
     };
@@ -414,7 +610,7 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                 const updates = checkItemCollection(finalX, finalY, myPlayer);
                 const newPlayerState = { ...myPlayer, x: finalX, y: finalY, ...updates };
                 setPlayers(prev => ({ ...prev, [playerId]: newPlayerState }));
-                if (now - lastNetworkUpdate.current > 50) {
+                if (channel && now - lastNetworkUpdate.current > 50) {
                     channel.send({ type: 'broadcast', event: 'move', payload: { id: playerId, data: newPlayerState } });
                     lastNetworkUpdate.current = now;
                 }
@@ -432,7 +628,9 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
             setBombs(prev => [...prev, bombPayload]);
             playSound('/sounds/coloca bomba.wav', 0.5);
             scheduleExplosion(bombPayload);
-            channel.send({ type: 'broadcast', event: 'place_bomb', payload: bombPayload });
+            if (channel) {
+                channel.send({ type: 'broadcast', event: 'place_bomb', payload: bombPayload });
+            }
         }
     };
 
@@ -447,39 +645,41 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         playSound('/sounds/pegou item.wav', 0.5);
         const newItems = stateRef.current.items.filter((_, i) => i !== itemIdx);
         setItems(newItems);
-        channel.send({ type: 'broadcast', event: 'item_collected', payload: { x: item.x, y: item.y } });
+        if (channel) {
+            channel.send({ type: 'broadcast', event: 'item_collected', payload: { x: item.x, y: item.y } });
+        }
         return updates;
     };
 
     return (
         <div className="flex flex-col items-center min-h-screen bg-joy-bg text-gray-800 p-4 lg:py-4 md:px-8 relative overflow-x-hidden">
             {/* Main Content Area: HUD + Table */}
-            <div className="flex flex-col lg:flex-row items-center lg:items-center justify-center gap-4 lg:gap-12 w-full max-w-[1600px] mt-8 lg:mt-0">
+            <div className="flex flex-col lg:flex-row items-center lg:items-center justify-center gap-4 lg:gap-12 w-full max-w-[1600px] mt-2 lg:mt-0">
 
                 {/* Left Side: Game HUD (Moved to side on Desktop) */}
                 <div className="w-full lg:w-72 flex lg:flex-col justify-between lg:justify-center gap-4 z-30 order-1 lg:order-none">
                     {Object.entries(players).map(([pid, p]) => (
                         <div key={pid} className={clsx(
-                            "flex flex-col gap-1 p-3 md:p-4 rounded-[2rem] bg-white border-4 transition-all shadow-lg w-full max-w-[180px] lg:max-w-none",
+                            "flex flex-col gap-0.5 p-2 md:p-4 rounded-[1.5rem] md:rounded-[2rem] bg-white border-2 md:border-4 transition-all shadow-md md:shadow-lg w-full max-w-[140px] md:max-w-none",
                             p.color === 'blue' ? "border-joy-mint text-joy-deep-purple" : "border-joy-pink text-joy-deep-purple",
                             pid === playerId ? "scale-105" : "opacity-80 scale-95"
                         )}>
-                            <div className="font-black text-sm md:text-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-1 lg:gap-6 uppercase tracking-tight">
+                            <div className="font-black text-[10px] md:text-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-0.5 lg:gap-6 uppercase tracking-tight">
                                 <span className={p.color === 'blue' ? "text-joy-mint" : "text-joy-pink"}>
                                     {p.name || (p.color === 'blue' ? 'JOY' : 'OPONENTE')}
                                 </span>
-                                <div className="flex gap-1 text-joy-pink text-xs md:text-sm">
-                                    {Array.from({ length: 3 }).map((_, i) => (
+                                <div className="flex gap-0.5 text-joy-pink text-[8px] md:text-sm">
+                                    {Array.from({ length: 5 }).map((_, i) => (
                                         <div key={i} className={clsx(i < p.lives ? "opacity-100 scale-110 lg:scale-125" : "opacity-20 grayscale", "transition-all")}>❤</div>
                                     ))}
                                 </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-2 md:gap-4 text-[9px] md:text-[11px] font-black uppercase text-joy-deep-purple/40 mt-1 md:mt-2 border-t border-joy-bg pt-2">
-                                <div className="flex items-center gap-1">
-                                    <img src="/images/icone.png" alt="Bomb" className="w-3 md:w-4 h-3 md:h-4 object-contain" /> {p.bombs}
+                            <div className="grid grid-cols-3 gap-1 md:gap-4 text-[7px] md:text-[11px] font-black uppercase text-joy-deep-purple/40 mt-0.5 md:mt-2 border-t border-joy-bg pt-1 md:pt-2">
+                                <div className="flex items-center gap-0.5">
+                                    <img src="/images/icone.png" alt="Bomb" className="w-2.5 md:w-4 h-2.5 md:h-4 object-contain" /> {p.bombs}
                                 </div>
-                                <div className="flex items-center gap-1"><Flame size={14} className="w-3 md:w-3.5" strokeWidth={3} /> {p.range}</div>
-                                <div className="flex items-center gap-1"><Footprints size={14} className="w-3 md:w-3.5" strokeWidth={3} /> {Math.round(((360 - (p.speed || 360)) / 40) + 1)}</div>
+                                <div className="flex items-center gap-0.5"><Flame size={12} className="w-2.5 md:w-3.5" strokeWidth={3} /> {p.range}</div>
+                                <div className="flex items-center gap-0.5"><Footprints size={12} className="w-2.5 md:w-3.5" strokeWidth={3} /> {Math.round(((360 - (p.speed || 360)) / 40) + 1)}</div>
                             </div>
                         </div>
                     ))}
@@ -526,8 +726,10 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                                         if (rematchVotes.includes(playerId)) return;
                                         const newVotes = [...new Set([...rematchVotes, playerId])];
                                         setRematchVotes(newVotes);
-                                        channel.send({ type: 'broadcast', event: 'vote_restart', payload: { id: playerId } });
-                                        if (isHost && newVotes.length >= 2) onRestart();
+                                        if (channel) {
+                                            channel.send({ type: 'broadcast', event: 'vote_restart', payload: { id: playerId } });
+                                        }
+                                        if (isHost && (isOffline || newVotes.length >= 2)) onRestart();
                                     }}
                                     className="w-full py-5 bg-joy-pink text-white rounded-3xl text-xl font-black uppercase tracking-widest transition-all shadow-[0_10px_0_#e6789b] active:translate-y-1 active:shadow-none disabled:opacity-50"
                                     disabled={rematchVotes.includes(playerId)}
