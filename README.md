@@ -6,14 +6,17 @@ Uma experiência "kawaii" e frenética inspirada no clássico Bomberman, constru
 
 ![JoyBomber Cover](/public/images/capa%20do%20jogo.png)
 
-## ✨ Características
+## ✨ Características (v2.5)
 
 - 🎮 **Multiplayer em Tempo Real**: Jogue com amigos através de salas privadas usando **Supabase Realtime**.
-- 🎀 **Estética Kawaii**: Design cuidadosamente planejado com paleta de cores vibrantes, animações suaves e ícones personalizados da Hello Kitty.
-- 🎵 **Imersão Sonora**: Trilha sonora relaxante no lobby e música animada durante as partidas, com controle total de áudio.
+- 🤖 **Modo Single Player**: Enfrente uma IA desafiadora no modo offline.
+- 🧠 **NPC com IA Avançada**: O inimigo agora utiliza algoritmos de busca (BFS) para desviar de bombas, perseguir o jogador e destruir obstáculos estrategicamente.
+- 🎀 **Estética Kawaii Premium**: Design cuidadosamente planejado com paleta de cores vibrantes, animações suaves e ícones personalizados.
+- 🎵 **Imersão Sonora**: Trilha sonora relaxante no lobby e música animada durante as partidas, com efeitos sonoros para cada ação.
 - 🏃 **Jogabilidade Fluida**: Sistema de colisão otimizado com *Corner Nudging* (ajuda de quina) para uma movimentação sem travamentos.
-- 👗 **Seleção de Personagens**: Escolha entre diferentes heróis no lobby antes de começar a batalha.
+- 👗 **Seleção de Personagens**: Escolha seu Avatar (Hello Kitty, Menino ou Gatinho Laranja) diretamente no lobby.
 - ⚡ **Power-ups Dinâmicos**: Aumente seu poder com itens de Bomba Extra, Alcance de Fogo e Velocidade.
+- 💖 **Vidas Extras**: No modo Single Player, você começa com 5 vidas para uma experiência de treino mais justa.
 
 ## 🚀 Tecnologias
 
@@ -33,7 +36,10 @@ Este projeto utiliza o que há de mais moderno no desenvolvimento web:
    ```
 
 2. **Instale as dependências:**
+   Este projeto recomenda o uso do **Bun** para máxima performance:
    ```bash
+   bun install
+   # ou
    npm install
    ```
 
@@ -46,15 +52,22 @@ Este projeto utiliza o que há de mais moderno no desenvolvimento web:
 
 4. **Inicie o servidor de desenvolvimento:**
    ```bash
+   bun run dev
+   # ou
    npm run dev
    ```
 
 ## 🎮 Controles
 
+### Desktop
 - **Movimentação**: `WASD` ou `Setas do Teclado`
-- **Colocar Bomba**: `Espaço`
-- **Sair da Partida**: Botão `✕ SAIR` no canto da tela
-- **Áudio**: Botão de `Alto-falante` para ligar/desligar a música
+- **Colocar Bomba**: `Espaço` (Space)
+- **Sair da Partida**: Botão `✕ SAIR` ou tecla `ESC`
+- **Áudio**: Botão de `Alto-falante` no lobby ou durante o jogo
+
+### Mobile
+- **Movimentação**: Joystick Virtual (Lado Esquerdo)
+- **Colocar Bomba**: Botão de Ação (Lado Direito)
 
 ## 📸 Screenshots
 
