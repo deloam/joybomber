@@ -6,7 +6,9 @@ Uma experiência "kawaii" e frenética inspirada no clássico Bomberman 2, const
 
 > **💖 A Inspiração:** Este jogo foi criado especialmente para tirar uma grande amiga do tédio! Pensado para quem ama a Hello Kitty e precisa de uma dose de fofura e diversão durante aquelas pausas no trabalho quando não tem muito o que fazer. ✨
 
-![JoyBomber Cover](/public/images/capa%20do%20jogo.png)
+<div align="center">
+  <img src="/public/images/capa%20do%20jogo.png" alt="JoyBomber Cover" width="400">
+</div>
 
 ## ✨ Características (v2.6)
 
