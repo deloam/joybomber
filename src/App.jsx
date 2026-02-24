@@ -299,14 +299,14 @@ export default function App() {
 
 
   return (
-    <div className="bg-joy-bg min-h-screen text-gray-800 font-sans flex relative overflow-hidden transition-all duration-500">
+    <div className="bg-joy-bg min-h-screen text-gray-800 font-sans flex relative overflow-x-hidden transition-all duration-500">
       {!isInGame && <LobbyBackground />}
       {/* LEFT: Game Area */}
-      <div className={`flex-1 flex flex-col items-center justify-start md:justify-center p-4 pt-12 md:pt-4 transition-all duration-300 ${!isInGame ? 'w-full' : ''}`}>
+      <div className={`flex-1 flex flex-col items-center p-4 pt-12 md:pt-4 transition-all duration-300 ${!isInGame ? 'w-full' : ''}`}>
 
         {!isInGame && (
-          <>
-            <div className="w-full max-w-md bg-white border-4 border-joy-pink p-6 rounded-[2rem] shadow-[0_20px_50px_rgba(254,148,180,0.3)] relative overflow-y-auto my-4 max-h-[90vh] flex flex-col">
+          <div className="my-auto flex flex-col items-center w-full py-2 min-h-[min-content]">
+            <div className="w-full max-w-md bg-white border-4 border-joy-pink p-6 rounded-[2rem] shadow-[0_20px_50px_rgba(254,148,180,0.3)] relative overflow-y-auto my-4 max-h-[85vh] flex flex-col">
               {/* Audio Toggle Button */}
               <button
                 onClick={() => setIsAudioEnabled(!isAudioEnabled)}
@@ -440,7 +440,7 @@ export default function App() {
             <div className="mt-6 inline-flex items-center px-4 py-1.5 bg-joy-rosinha/30 backdrop-blur-sm border-2 border-joy-pink/20 rounded-full shadow-sm animate-fade-in">
               <p className="text-[9px] font-black text-joy-deep-purple/70 uppercase tracking-[0.3em]">Criado por Deloam • v2.5</p>
             </div>
-          </>
+          </div>
         )}
 
         {isInGame && map ? (

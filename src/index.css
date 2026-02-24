@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-joy-bg text-gray-800 overflow-hidden;
+    @apply bg-joy-bg text-gray-800 overflow-x-hidden;
     font-family: 'Outfit', sans-serif;
   }
 }

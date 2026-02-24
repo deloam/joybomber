@@ -8,24 +8,21 @@ const COLORS = {
 };
 
 export const WallSprite = () => (
-    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-sm">
-        <rect x="5" y="5" width="90" height="90" fill={COLORS.wall} rx="15" />
-        <rect x="15" y="15" width="70" height="70" fill="none" stroke="white" strokeWidth="4" strokeDasharray="8 4" rx="10" opacity="0.3" />
-        <circle cx="20" cy="20" r="4" fill="white" />
-        <circle cx="80" cy="20" r="4" fill="white" />
-        <circle cx="20" cy="80" r="4" fill="white" />
-        <circle cx="80" cy="80" r="4" fill="white" />
-        <path d="M50 35 L55 45 L65 45 L57 52 L60 62 L50 55 L40 62 L43 52 L35 45 L45 45 Z" fill="white" />
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md">
+        <rect x="5" y="18" width="90" height="82" fill="#581669" rx="15" />
+        <rect x="5" y="5" width="90" height="82" fill={COLORS.wall} rx="15" />
+        <rect x="15" y="15" width="70" height="62" fill="none" stroke="white" strokeWidth="4" strokeDasharray="8 4" rx="10" opacity="0.3" />
+        <path d="M50 30 L55 40 L65 40 L57 47 L60 57 L50 50 L40 57 L43 47 L35 40 L45 40 Z" fill="white" />
     </svg>
 );
 
 export const CrateSprite = () => (
-    <svg viewBox="0 0 100 100" className="w-full h-full animate-pulse-slow">
-        <rect x="8" y="8" width="84" height="84" fill="#fef08a" rx="12" />
-        <rect x="42" y="8" width="16" height="84" fill="#fe94b4" />
-        <rect x="8" y="42" width="84" height="16" fill="#fe94b4" />
-        <path d="M40 40 Q50 30 60 40 Q70 50 60 60 Q50 70 40 60 Q30 50 40 40" fill="#fe94b4" stroke="white" strokeWidth="2" />
-        <circle cx="50" cy="50" r="6" fill="white" />
+    <svg viewBox="0 0 100 100" className="w-full h-full">
+        <rect x="8" y="18" width="84" height="78" fill="#d1b84f" rx="12" />
+        <rect x="8" y="8" width="84" height="74" fill="#fef08a" rx="12" />
+        <rect x="42" y="8" width="16" height="74" fill="#fe94b4" />
+        <rect x="8" y="38" width="84" height="16" fill="#fe94b4" />
+        <circle cx="50" cy="46" r="6" fill="white" />
     </svg>
 );
 
@@ -74,8 +71,17 @@ export const PlayerSprite = ({ color, isSelf, character }) => {
 
 export const ExplosionSprite = () => (
     <svg viewBox="0 0 100 100" className="w-full h-full">
-        <path d="M50 85 C20 65 20 35 50 35 C80 35 80 65 50 85" fill="#fe94b4" opacity="0.6" className="animate-ping" />
-        <circle cx="50" cy="50" r="20" fill="#fef08a" opacity="0.4" className="animate-pulse" />
-        <path d="M50 50 L50 20 M50 50 L80 50 M50 50 L50 80 M50 50 L20 50" stroke="white" strokeWidth="6" strokeLinecap="round" opacity="0.8" />
+        <defs>
+            <radialGradient id="fireGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#ffffff" />
+                <stop offset="40%" stopColor="#fef08a" />
+                <stop offset="80%" stopColor="#fe94b4" />
+                <stop offset="100%" stopColor="#842996" stopOpacity="0" />
+            </radialGradient>
+        </defs>
+        <circle cx="50" cy="50" r="45" fill="url(#fireGrad)" className="animate-pulse" />
+        <path d="M50 5 L60 35 L90 40 L65 55 L75 85 L50 70 L25 85 L35 55 L10 40 L40 35 Z" fill="#fe94b4" className="animate-ping" opacity="0.7" />
+        <path d="M50 15 L58 38 L82 42 L62 55 L70 78 L50 65 L30 78 L38 55 L18 42 L42 38 Z" fill="#fef08a" className="animate-pulse" />
+        <circle cx="50" cy="50" r="15" fill="white" />
     </svg>
 );

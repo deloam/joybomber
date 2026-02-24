@@ -35,8 +35,8 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         const handleResize = () => {
             const isPC = window.innerWidth >= 1024;
             const boardWidth = isPC
-                ? (GRID_WIDTH * CELL_SIZE + 800) // HUD (300) + Board (600) + Chat (400) factor
-                : (GRID_WIDTH * CELL_SIZE + 150);
+                ? (GRID_WIDTH * CELL_SIZE + 600) // HUD + Board + Chat
+                : (GRID_WIDTH * CELL_SIZE + 80);
 
             const boardHeight = isPC
                 ? (GRID_HEIGHT * CELL_SIZE + 250)
@@ -109,10 +109,10 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         };
     }, []);
 
-    const stateRef = useRef({ map, players, bombs, items, gameOver });
+    const stateRef = useRef({ map, players, bombs, items, gameOver, explosions });
     useEffect(() => {
-        stateRef.current = { map, players, bombs, items, gameOver };
-    }, [map, players, bombs, items, gameOver]);
+        stateRef.current = { map, players, bombs, items, gameOver, explosions };
+    }, [map, players, bombs, items, gameOver, explosions]);
 
     useEffect(() => {
         if (initialPlayers && Object.keys(initialPlayers).length > 0) {
@@ -156,6 +156,17 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                     }
                 });
             });
+
+            // Add active explosions
+            if (stateRef.current.explosions) {
+                stateRef.current.explosions.forEach(exp => {
+                    const ex = Math.round(exp.x);
+                    const ey = Math.round(exp.y);
+                    if (ex >= 0 && ex < GRID_WIDTH && ey >= 0 && ey < GRID_HEIGHT) {
+                        dangerMap[ey * GRID_WIDTH + ex] = true;
+                    }
+                });
+            }
 
             // 2. BFS for pathfinding
             const getShortestPath = (startX, startY, targetPredicate, isWalkable) => {
@@ -441,6 +452,34 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         let winner = null;
         const hitPlayers = new Set();
 
+        const applyDamage = (pid, p, now) => {
+            if (p.lives > 0 && (!p.invincibleUntil || now > p.invincibleUntil)) {
+                const newLives = p.lives - 1;
+                const newInvincibleUntil = now + 1500; // 1.5s immunity
+
+                playSound('/sounds/sofre dano.wav', 0.6);
+
+                if (channel) {
+                    channel.send({
+                        type: 'broadcast',
+                        event: 'update_lives',
+                        payload: { id: pid, lives: newLives, invincibleUntil: newInvincibleUntil }
+                    });
+                }
+
+                setPlayers(prev => ({
+                    ...prev, [pid]: { ...prev[pid], lives: newLives, alive: newLives > 0, invincibleUntil: newInvincibleUntil }
+                }));
+
+                if (newLives <= 0) {
+                    const otherId = Object.keys(stateRef.current.players).find(id => id !== pid);
+                    const roundWinner = otherId || attackerId;
+                    return roundWinner;
+                }
+            }
+            return null;
+        };
+
         flames.forEach(f => {
             const idx = f.y * GRID_WIDTH + f.x;
             let justSpawned = false;
@@ -454,7 +493,8 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                 }
             }
             Object.entries(stateRef.current.players).forEach(([pid, p]) => {
-                if (Math.round(p.x) === f.x && Math.round(p.y) === f.y) {
+                // Offset hitbox +0.3 in Y so only the body/feet are vulnerable to explosions
+                if (Math.abs(p.x - f.x) < 0.70 && Math.abs((p.y + 0.3) - f.y) < 0.65) {
                     hitPlayers.add(pid);
                 }
             });
@@ -468,27 +508,11 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
         });
 
         if (hitPlayers.size > 0) {
+            const now = Date.now();
             hitPlayers.forEach(pid => {
                 const p = stateRef.current.players[pid];
-                const now = Date.now();
-                if (p.lives > 0 && (!p.invincibleUntil || now > p.invincibleUntil)) {
-                    const newLives = p.lives - 1;
-                    const newInvincibleUntil = now + 1000;
-                    if (channel) {
-                        channel.send({
-                            type: 'broadcast',
-                            event: 'update_lives',
-                            payload: { id: pid, lives: newLives, invincibleUntil: newInvincibleUntil }
-                        });
-                    }
-                    setPlayers(prev => ({
-                        ...prev, [pid]: { ...prev[pid], lives: newLives, alive: newLives > 0, invincibleUntil: newInvincibleUntil }
-                    }));
-                    if (newLives <= 0) {
-                        const otherId = Object.keys(stateRef.current.players).find(id => id !== pid);
-                        winner = otherId || attackerId;
-                    }
-                }
+                const w = applyDamage(pid, p, now);
+                if (w) winner = w;
             });
         }
 
@@ -533,6 +557,25 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
     }, []);
 
     const update = (dt, now) => {
+        const realNow = Date.now();
+        let shouldClearInvincible = false;
+        Object.values(stateRef.current.players).forEach(p => {
+            if (p.invincibleUntil && realNow >= p.invincibleUntil) {
+                shouldClearInvincible = true;
+            }
+        });
+        if (shouldClearInvincible) {
+            setPlayers(prev => {
+                const next = { ...prev };
+                Object.keys(next).forEach(pid => {
+                    if (next[pid].invincibleUntil && realNow >= next[pid].invincibleUntil) {
+                        next[pid] = { ...next[pid], invincibleUntil: null };
+                    }
+                });
+                return next;
+            });
+        }
+
         const myPlayer = stateRef.current.players[playerId];
         if (!myPlayer || !myPlayer.alive) return;
 
@@ -569,10 +612,23 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
             let finalX = localPosRef.current.x;
             let finalY = localPosRef.current.y;
 
-            const SLIDE_THRESHOLD = 0.4;
+            const SLIDE_THRESHOLD = 0.55;
+
+            const getAutoCenter = (curr) => {
+                const target = Math.round(curr);
+                const diff = target - curr;
+                if (Math.abs(diff) > 0.001) {
+                    return curr + Math.sign(diff) * Math.min(Math.abs(diff), moveAmount * 1.5);
+                }
+                return target;
+            };
 
             if (dx !== 0) {
-                if (isValidMove(stateRef.current.map, nextX, localPosRef.current.y, stateRef.current.bombs, localPosRef.current.x, localPosRef.current.y)) {
+                const tryY = dy === 0 ? getAutoCenter(finalY) : finalY;
+                if (isValidMove(stateRef.current.map, nextX, tryY, stateRef.current.bombs, localPosRef.current.x, localPosRef.current.y)) {
+                    finalX = nextX;
+                    finalY = tryY;
+                } else if (isValidMove(stateRef.current.map, nextX, finalY, stateRef.current.bombs, localPosRef.current.x, localPosRef.current.y)) {
                     finalX = nextX;
                 } else if (dy === 0) {
                     const centerY = Math.round(localPosRef.current.y);
@@ -583,13 +639,19 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                         if (isValidMove(stateRef.current.map, nextX, testY, stateRef.current.bombs, localPosRef.current.x, localPosRef.current.y)) {
                             finalX = nextX;
                             finalY = testY;
+                        } else if (isValidMove(stateRef.current.map, localPosRef.current.x, testY, stateRef.current.bombs, localPosRef.current.x, localPosRef.current.y)) {
+                            finalY = testY;
                         }
                     }
                 }
             }
 
             if (dy !== 0) {
-                if (isValidMove(stateRef.current.map, finalX, nextY, stateRef.current.bombs, finalX, localPosRef.current.y)) {
+                const tryX = dx === 0 ? getAutoCenter(finalX) : finalX;
+                if (isValidMove(stateRef.current.map, tryX, nextY, stateRef.current.bombs, localPosRef.current.x, localPosRef.current.y)) {
+                    finalX = tryX;
+                    finalY = nextY;
+                } else if (isValidMove(stateRef.current.map, finalX, nextY, stateRef.current.bombs, localPosRef.current.x, localPosRef.current.y)) {
                     finalY = nextY;
                 } else if (dx === 0) {
                     const centerX = Math.round(localPosRef.current.x);
@@ -600,6 +662,8 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                         if (isValidMove(stateRef.current.map, testX, nextY, stateRef.current.bombs, localPosRef.current.x, localPosRef.current.y)) {
                             finalX = testX;
                             finalY = nextY;
+                        } else if (isValidMove(stateRef.current.map, testX, localPosRef.current.y, stateRef.current.bombs, localPosRef.current.x, localPosRef.current.y)) {
+                            finalX = testX;
                         }
                     }
                 }
@@ -615,6 +679,43 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                     lastNetworkUpdate.current = now;
                 }
             }
+        }
+
+        // --- Continuous Explosion Check ---
+        if (isHost && stateRef.current.explosions.length > 0 && !stateRef.current.gameOver) {
+            const realNow = Date.now();
+            Object.entries(stateRef.current.players).forEach(([pid, p]) => {
+                if (p.lives > 0 && (!p.invincibleUntil || realNow > p.invincibleUntil)) {
+                    // Offset hitbox +0.3 in Y so only the body/feet are vulnerable to explosions
+                    const hit = stateRef.current.explosions.some(f => Math.abs(p.x - f.x) < 0.70 && Math.abs((p.y + 0.3) - f.y) < 0.65);
+                    if (hit) {
+                        const newLives = p.lives - 1;
+                        const newInvincibleUntil = realNow + 1500; // 1.5s immunity
+
+                        playSound('/sounds/sofre dano.wav', 0.6);
+
+                        // Update local state and trigger network message directly akin to applyDamage
+                        setPlayers(prev => ({
+                            ...prev, [pid]: { ...prev[pid], lives: newLives, alive: newLives > 0, invincibleUntil: newInvincibleUntil }
+                        }));
+
+                        if (channel) {
+                            channel.send({
+                                type: 'broadcast',
+                                event: 'update_lives',
+                                payload: { id: pid, lives: newLives, invincibleUntil: newInvincibleUntil }
+                            });
+                        }
+
+                        if (newLives <= 0) {
+                            const otherId = Object.keys(stateRef.current.players).find(id => id !== pid);
+                            const winner = otherId || pid;
+                            if (channel) channel.send({ type: 'broadcast', event: 'game_over', payload: { winner } });
+                            setGameOver({ winner });
+                        }
+                    }
+                }
+            });
         }
     };
 
@@ -744,7 +845,7 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                     )}
 
                     {/* Quit Button */}
-                    <div className="absolute bottom-8 right-8 flex gap-2 z-40">
+                    <div className="fixed bottom-8 right-8 flex gap-2 z-40">
                         <button
                             onClick={onToggleAudio}
                             className="p-4 bg-white border-4 border-joy-pink/20 text-joy-pink hover:bg-joy-pink hover:text-white rounded-2xl transition-all font-black text-xs shadow-lg"
@@ -762,112 +863,116 @@ export default function Game({ channel, playerId, isHost, initialMap, initialPla
                     </div>
 
                     {/* Board Container */}
-                    <div style={{ transform: `scale(${scale})`, transformOrigin: 'center top' }} className="z-20">
-                        <div
-                            className="relative bg-joy-ground-purple border-8 border-joy-deep-purple rounded-[4rem] shadow-[0_30px_60px_rgba(254,148,180,0.2)] p-12"
-                            style={{
-                                width: GRID_WIDTH * CELL_SIZE + 112,
-                                height: GRID_HEIGHT * CELL_SIZE + 112,
-                            }}
-                        >
-                            <div className="relative w-full h-full">
-                                <div className="absolute inset-0 opacity-20 pointer-events-none"
-                                    style={{
-                                        backgroundImage: `linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px)`,
-                                        backgroundSize: `${CELL_SIZE}px ${CELL_SIZE}px`
-                                    }}
-                                />
+                    <div style={{ width: (GRID_WIDTH * CELL_SIZE + 48) * scale, height: (GRID_HEIGHT * CELL_SIZE + 48) * scale }} className="relative z-20 flex justify-center">
+                        <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }} className="absolute top-0 left-0">
+                            <div
+                                className="relative bg-[#cec2f8] border-8 border-joy-deep-purple rounded-3xl shadow-[0_25px_50px_rgba(254,148,180,0.25)] p-4"
+                                style={{
+                                    width: GRID_WIDTH * CELL_SIZE + 48,
+                                    height: GRID_HEIGHT * CELL_SIZE + 48,
+                                    boxSizing: 'border-box'
+                                }}
+                            >
+                                <div className="relative" style={{ width: GRID_WIDTH * CELL_SIZE, height: GRID_HEIGHT * CELL_SIZE }}>
+                                    <div className="absolute inset-0 opacity-40 rounded pointer-events-none"
+                                        style={{
+                                            backgroundImage: `linear-gradient(45deg, rgba(254,148,180,0.2) 25%, transparent 25%, transparent 75%, rgba(254,148,180,0.2) 75%, rgba(254,148,180,0.2)), linear-gradient(45deg, rgba(254,148,180,0.2) 25%, transparent 25%, transparent 75%, rgba(254,148,180,0.2) 75%, rgba(254,148,180,0.2))`,
+                                            backgroundPosition: `0 0, ${CELL_SIZE / 2}px ${CELL_SIZE / 2}px`,
+                                            backgroundSize: `${CELL_SIZE}px ${CELL_SIZE}px`
+                                        }}
+                                    />
 
-                                {map.map((cell, i) => {
-                                    const x = i % GRID_WIDTH;
-                                    const y = Math.floor(i / GRID_WIDTH);
-                                    if (cell.type === BLOCK.EMPTY) return null;
-                                    return (
+                                    {map.map((cell, i) => {
+                                        const x = i % GRID_WIDTH;
+                                        const y = Math.floor(i / GRID_WIDTH);
+                                        if (cell.type === BLOCK.EMPTY) return null;
+                                        return (
+                                            <div
+                                                key={i}
+                                                className="absolute top-0 left-0"
+                                                style={{
+                                                    width: CELL_SIZE, height: CELL_SIZE,
+                                                    transform: `translate(${x * CELL_SIZE}px, ${y * CELL_SIZE}px)`
+                                                }}
+                                            >
+                                                {cell.type === BLOCK.WALL && <WallSprite />}
+                                                {cell.type === BLOCK.CRATE && <CrateSprite />}
+                                            </div>
+                                        );
+                                    })}
+
+                                    {items.map((item, i) => (
                                         <div
-                                            key={i}
-                                            className="absolute top-0 left-0"
+                                            key={`item-${i}`}
+                                            className="absolute flex items-center justify-center animate-bounce-slow"
                                             style={{
                                                 width: CELL_SIZE, height: CELL_SIZE,
-                                                transform: `translate(${x * CELL_SIZE}px, ${y * CELL_SIZE}px)`
+                                                transform: `translate(${item.x * CELL_SIZE}px, ${item.y * CELL_SIZE}px)`
                                             }}
                                         >
-                                            {cell.type === BLOCK.WALL && <WallSprite />}
-                                            {cell.type === BLOCK.CRATE && <CrateSprite />}
+                                            {item.type === POWERUP.BOMB && <Bomb className="text-joy-wall-purple" size={32} />}
+                                            {item.type === POWERUP.FIRE && <Flame className="text-joy-wall-purple" size={32} />}
+                                            {item.type === POWERUP.SPEED && <Footprints className="text-joy-wall-purple" size={32} />}
                                         </div>
-                                    );
-                                })}
+                                    ))}
 
-                                {items.map((item, i) => (
-                                    <div
-                                        key={`item-${i}`}
-                                        className="absolute flex items-center justify-center animate-bounce-slow"
-                                        style={{
-                                            width: CELL_SIZE, height: CELL_SIZE,
-                                            transform: `translate(${item.x * CELL_SIZE}px, ${item.y * CELL_SIZE}px)`
-                                        }}
-                                    >
-                                        {item.type === POWERUP.BOMB && <Bomb className="text-joy-wall-purple" size={32} />}
-                                        {item.type === POWERUP.FIRE && <Flame className="text-joy-wall-purple" size={32} />}
-                                        {item.type === POWERUP.SPEED && <Footprints className="text-joy-wall-purple" size={32} />}
-                                    </div>
-                                ))}
-
-                                {bombs.map((bomb) => (
-                                    <div
-                                        key={bomb.id}
-                                        className="absolute flex items-center justify-center z-10"
-                                        style={{
-                                            width: CELL_SIZE, height: CELL_SIZE,
-                                            transform: `translate(${bomb.x * CELL_SIZE}px, ${bomb.y * CELL_SIZE}px)`
-                                        }}
-                                    >
-                                        <div className="w-full h-full scale-90">
-                                            <BombSprite />
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {explosions.map((exp) => (
-                                    <div
-                                        key={exp.id}
-                                        className="absolute flex items-center justify-center z-20"
-                                        style={{
-                                            width: CELL_SIZE, height: CELL_SIZE,
-                                            transform: `translate(${exp.x * CELL_SIZE}px, ${exp.y * CELL_SIZE}px)`
-                                        }}
-                                    >
-                                        <ExplosionSprite />
-                                    </div>
-                                ))}
-
-                                {Object.entries(players).map(([pid, p]) => {
-                                    const isInvincible = p.invincibleUntil && Date.now() < p.invincibleUntil;
-                                    return (
+                                    {bombs.map((bomb) => (
                                         <div
-                                            key={pid}
-                                            className={clsx(
-                                                "absolute flex items-center justify-center z-30 transition-all duration-100",
-                                                isInvincible && "animate-blink"
-                                            )}
+                                            key={bomb.id}
+                                            className="absolute flex items-center justify-center z-10"
                                             style={{
                                                 width: CELL_SIZE, height: CELL_SIZE,
-                                                transform: `translate(${p.x * CELL_SIZE}px, ${p.y * CELL_SIZE}px)`
+                                                transform: `translate(${bomb.x * CELL_SIZE}px, ${bomb.y * CELL_SIZE}px)`
                                             }}
                                         >
-                                            <div className="w-full h-full scale-110">
-                                                <PlayerSprite color={p.color} isSelf={pid === playerId} character={p.character} />
-                                            </div>
-                                            <div className={`absolute -top-5 text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap bg-white border-2 ${pid === playerId ? "text-joy-mint border-joy-mint" : "text-joy-pink border-joy-pink"}`}>
-                                                {p.name || (pid === playerId ? "VOCÊ" : "INIMIGO")}
+                                            <div className="w-full h-full scale-90">
+                                                <BombSprite />
                                             </div>
                                         </div>
-                                    );
-                                })}
+                                    ))}
+
+                                    {explosions.map((exp) => (
+                                        <div
+                                            key={exp.id}
+                                            className="absolute flex items-center justify-center z-20"
+                                            style={{
+                                                width: CELL_SIZE, height: CELL_SIZE,
+                                                transform: `translate(${exp.x * CELL_SIZE}px, ${exp.y * CELL_SIZE}px)`
+                                            }}
+                                        >
+                                            <ExplosionSprite />
+                                        </div>
+                                    ))}
+
+                                    {Object.entries(players).map(([pid, p]) => {
+                                        const isInvincible = p.invincibleUntil && Date.now() < p.invincibleUntil;
+                                        return (
+                                            <div
+                                                key={pid}
+                                                className={clsx(
+                                                    "absolute flex items-center justify-center z-30 transition-all duration-100",
+                                                    isInvincible && "animate-blink"
+                                                )}
+                                                style={{
+                                                    width: CELL_SIZE, height: CELL_SIZE,
+                                                    transform: `translate(${p.x * CELL_SIZE}px, ${p.y * CELL_SIZE}px)`
+                                                }}
+                                            >
+                                                <div className="w-full h-full scale-110">
+                                                    <PlayerSprite color={p.color} isSelf={pid === playerId} character={p.character} />
+                                                </div>
+                                                <div className={`absolute -top-5 text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap bg-white border-2 ${pid === playerId ? "text-joy-mint border-joy-mint" : "text-joy-pink border-joy-pink"}`}>
+                                                    {p.name || (pid === playerId ? "VOCÊ" : "INIMIGO")}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="mt-8 text-joy-pink/40 text-[10px] font-black uppercase tracking-[0.2em] text-center">
-                            WASD • SETAS • ESPAÇO
+                            <div className="mt-8 text-joy-pink/40 text-[10px] font-black uppercase tracking-[0.2em] text-center">
+                                WASD • SETAS • ESPAÇO
+                            </div>
                         </div>
                     </div>
                 </div>

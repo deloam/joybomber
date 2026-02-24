@@ -96,7 +96,7 @@ export function generateMap() {
 }
 
 // --- Physical Collision Logic (AABB) ---
-const PLAYER_SIZE = 0.6; // Reduzindo para facilitar a entrada em corredores
+const PLAYER_SIZE = 0.75; // Hitbox mais justa para não permitir zig-zag solto em corredores
 const TILE_SIZE = 1.0;
 
 function rectIntersect(r1, r2) {

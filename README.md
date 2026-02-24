@@ -1,19 +1,21 @@
 # 🌸 JoyBomber 💣
 
-Uma experiência "kawaii" e frenética inspirada no clássico Bomberman, construída com foco em estética premium, jogabilidade fluida e multiplayer em tempo real.
+Uma experiência "kawaii" e frenética inspirada no clássico Bomberman 2, construída com foco em estética premium, jogabilidade fluida em Grid e multiplayer em tempo real.
+
+**🕹️ Jogue online agora mesmo: [https://joybomber.vercel.app/](https://joybomber.vercel.app/)**
 
 > **💖 A Inspiração:** Este jogo foi criado especialmente para tirar uma grande amiga do tédio! Pensado para quem ama a Hello Kitty e precisa de uma dose de fofura e diversão durante aquelas pausas no trabalho quando não tem muito o que fazer. ✨
 
 ![JoyBomber Cover](/public/images/capa%20do%20jogo.png)
 
-## ✨ Características (v2.5)
+## ✨ Características (v2.6)
 
 - 🎮 **Multiplayer em Tempo Real**: Jogue com amigos através de salas privadas usando **Supabase Realtime**.
 - 🤖 **Modo Single Player**: Enfrente uma IA desafiadora no modo offline.
-- 🧠 **NPC com IA Avançada**: O inimigo agora utiliza algoritmos de busca (BFS) para desviar de bombas, perseguir o jogador e destruir obstáculos estrategicamente.
-- 🎀 **Estética Kawaii Premium**: Design cuidadosamente planejado com paleta de cores vibrantes, animações suaves e ícones personalizados.
+- 🧠 **NPC com IA Avançada**: O inimigo agora utiliza algoritmos de busca (BFS) para desviar de chamas residuais, perseguir o jogador e destruir obstáculos estrategicamente.
+- 🎀 **Estética Kawaii Premium**: Design cuidadosamente planejado com padrão 3D isométrico, quadriculado dinâmico e sprites em alta definição.
 - 🎵 **Imersão Sonora**: Trilha sonora relaxante no lobby e música animada durante as partidas, com efeitos sonoros para cada ação.
-- 🏃 **Jogabilidade Fluida**: Sistema de colisão otimizado com *Corner Nudging* (ajuda de quina) para uma movimentação sem travamentos.
+- 🏃 **Física Fiel aos Clássicos**: Hitboxes alinhadas à cintura (livrando a cabeça de tomar dano!), imunidade com flash temporal e "Corner Nudging" (auto-centralização em curvas apertadas).
 - 👗 **Seleção de Personagens**: Escolha seu Avatar (Hello Kitty, Menino ou Gatinho Laranja) diretamente no lobby.
 - ⚡ **Power-ups Dinâmicos**: Aumente seu poder com itens de Bomba Extra, Alcance de Fogo e Velocidade.
 - 💖 **Vidas Extras**: No modo Single Player, você começa com 5 vidas para uma experiência de treino mais justa.
